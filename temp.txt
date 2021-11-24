@@ -1,0 +1,3 @@
+2300.00
+50.00 20210904 "" creditcard,living
+23.20 20210911 "ate out" cash

@@ -1,7 +1,6 @@
 SYNOPSIS
-   ttybudget -a|--add [DATE_FORMAT] amount [ADD_OPTIONS] [-n|--new] amount [ADD_OPTIONS] 
+   ttybudget -a|--add AMOUNT [DATE_FORMAT] [ADD_OPTIONS] 
    ttybudget -p|--print [DATE_FORMAT] [PRINT_OPTIONS] 
-   ttybudget -e|--edit [DATE_FORMAT] [PRINT_OPTIONS]
    ttybudget -h|--help
    ttybudget -v|--version
    ttybudget CONFIG_OPTIONS [MAIN_OPTIONS]
@@ -10,7 +9,6 @@ OPTIONS
    MAIN OPTIONS
       -a AMOUNT, --add AMOUNT
       -p, --print
-      -e, --edit
       -h, --help 
       -v, --version 
 
@@ -18,12 +16,11 @@ OPTIONS
       -t TAG_A,TAG_B, ..., --tags TAG_A,TAG_B, ...
       -m "MESSAGE", --message "MESSAGE"
       -d DATE, --date DATE
-      -n, --new
 
    PRINT OPTIONS
       -q TAG_A,TAG_B, ..., --query-tags TAG_A,TAG_B, ...
       -i BOUND1 [BOUND2], --interval BOUND1 [BOUND2]
-      -r [--abs] BOUND1 [BOUND2], --range [--abs] BOUND1 [BOUND2]
+      -r BOUND1 [BOUND2], --range BOUND1 [BOUND2]
       -s, --sort
 
    DATE FORMAT OPTIONS
@@ -34,6 +31,5 @@ OPTIONS
    CONFIG OPTIONS
       --base-dir BASE_DIRECTORY
       --currency CURRENCY_CHARACTER
-      --output-date-format DATE_FORMAT
-      --input-date-format DATE_FORMAT
+      --date-format DATE_FORMAT
       --use-file RECORDS_FILE

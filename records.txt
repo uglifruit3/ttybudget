@@ -14,3 +14,8 @@
 1.00 20210905 "will it print?" 
 15.00 20210905 "test2" castel
 10.00 20210905 "test1" 
+-157.00 20211113 "car parts" credit,car
+-4400.00 20211201 "bought 01 boutback" cash,car
+-40.00 20211203 "bought something" 
+-40.00 20211203 "bought something" tag1
+-80.00 20211203 "" 

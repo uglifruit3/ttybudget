@@ -14,7 +14,11 @@ int main(int argc, char *argv[])
 	struct search_param_t print_params;
 	init_search_params(&print_params);
 
-	parse_command_line(argv, argc, infile_name, &new_records, &print_params);
+	int err = parse_command_line(argv, argc, infile_name, &new_records, &print_params);
+	if (err == TRUE)
+		return 1;
+	else if (err == 2)
+		return 0;
 
 	float tot_cash = 0;
 
@@ -36,6 +40,7 @@ int main(int argc, char *argv[])
 	if (*prints == -1)
 		fprintf(stderr, "Error: date %i not found.\n", print_params.date1);
 	else if (*prints == -2)
+		// TODO adjust this to indicate failure to find records within the given range
 		fprintf(stderr, "Error: date %i not found.\n", print_params.date2);
 	else if (*prints == -3)
 		fprintf(stderr, "Error: no records in amount range %.2f, %.2f.\n", print_params.amnt_bound1, print_params.amnt_bound2);

@@ -57,16 +57,17 @@ int is_cmdline_option(char *str1)
 			"-q", "--query-tags", /* 12-17 print options */
 			"-i", "--interval",
 			"-r", "--range",
+			"-s", "--sort",
 		"-h", "--help",
 		"-v", "--version",
-		"--iso", "--us", "--long",    /* 22-24 date formats */
-		"--base-dir",                 /* 25-29 config options */
+		"--iso", "--us", "--long",    /* 24-26 date formats */
+		"--base-dir",                 /* 27-31 config options */
 		"--currency",
 		"--output-date-format",
 		"--input-date-format",
 		"--use-file"
 	};
-	const int num_opts = 30;
+	const int num_opts = 32;
 
 	int opt = string_in_list(str1, (char **)cmdline_opts, num_opts);
 			
@@ -418,29 +419,35 @@ int get_new_records(int argc, char *argv[], int *index, int date_frmt, struct Ne
 			if (error) 
 				return TRUE;
 
-			if (record->data.date == 0)
-				record->data.date = get_current_date();
-
-			add2front(new_records, record);
-			add_flag = TRUE;
-			*index -= 2; /* decrement by two because main loop increments by one */
+			*index -= 1; /* decrement by one because get_amount sets two forward */
 			break;
 		default:
-			fprintf(stderr, "Error: option \"%s\" is not a sub-option for add.\n", argv[*index]);
-			error = TRUE;
+			*index -= 2; /* decrement by one so caller reads this argument */
+			add_flag = TRUE;
 			break;
 		}
+	}
+
+	add_flag = FALSE;
+	if (isnan(record->data.amount)) {
+		error = TRUE;
+	} else {
+		add2front(new_records, record);
+		add_flag = TRUE;
+
+		if (record->data.date == 0)
+			record->data.date = get_current_date();
 	}
 
 	if (error || !add_flag) {
 		if (!add_flag) {
-			fprintf(stderr, "Error: amount(s) not given for add option.\n");
+			fprintf(stderr, "Error: amount not given for add option.\n");
 			free(record);
 		}
 		return TRUE;
-	} else {
-		return FALSE;
 	}
+
+	return FALSE;
 }
 
 int get_print_commands(int argc, char *argv[], int *index, int date_frmt, struct search_param_t *params)
@@ -482,6 +489,8 @@ int get_print_commands(int argc, char *argv[], int *index, int date_frmt, struct
 			error = get_amount(argv, index, &(params->amnt_bound1), FALSE);
 			if (!error && *index < argc && is_cmdline_option(argv[*index]) == -1)
 				error = get_amount(argv, index, &(params->amnt_bound2), FALSE);
+			else if (params->amnt_bound1 < 0)
+				params->amnt_bound2 = -INFINITY;
 
 			if (params->amnt_bound1 > params->amnt_bound2) {
 				float tmp = params->amnt_bound2;
@@ -506,10 +515,18 @@ int get_print_commands(int argc, char *argv[], int *index, int date_frmt, struct
 		case -1:
 			*index -= 1; /* decrement by 1 because of increment at function caller */
 			return FALSE;
-		default:
+		case TAGS_S:
+		case TAGS_L:
+		case DATE_S:
+		case DATE_L:
+		case MESSAGE_S:
+		case MESSAGE_L:
 			fprintf(stderr, "Error: option \"%s\" is not a sub-option for print.\n", argv[*index]);
 			error = TRUE;
 			break;
+		default:
+			*index -= 1;
+			return FALSE;
 		}
 	}
 
@@ -525,6 +542,16 @@ int parse_command_line(char *argv[], int argc, char filename[], struct NewRecs_t
 
 	for (int i = 1; i < argc; i++) {
 		switch (is_cmdline_option(argv[i])) {
+		case HELP_S:
+		case HELP_L:
+			printf("Usage:\n  ttybudget -a|--add [DATE_FORMAT] amount [ADD_OPTIONS]\n  ttybudget -p|--print [DATE_FORMAT] [PRINT_OPTIONS]\n  ttybudget -e|--edit [DATE_FORMAT] [PRINT_OPTIONS]\n  ttybudget -h|--help\n  ttybudget -v|--version\n  ttybudget CONFIG_OPTIONS [MAIN_OPTIONS]\n");
+			error = 2; 
+			break;
+		case VERSION_S:
+		case VERSION_L:
+			printf("ttybudget v1.0 - 01 Dec 21\n");
+			error = 2;
+			break;
 		case ADD_S: 
 		case ADD_L:
 			error = get_new_records(argc, argv, &i, date_frmt, new_records);

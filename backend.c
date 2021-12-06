@@ -27,12 +27,13 @@ void arr_cpy(struct record_t *arr1, struct record_t *arr2, int n)
 int *binary_search(int term, int *list, int hi, int lo)
 {
 	int ref = (((float)hi - (float)lo) / 2.0) + lo;
+	int max_ind = hi;
 
 	if (list[ref] == term) {
 		while (ref > 0 && list[ref-1] == term)
 			ref--;
-		int hi = ref+1;
-		while (list[hi+1] && list[hi+1] == term)
+		int hi = ref;
+		while (hi < max_ind && list[hi+1] == term)
 			hi++;
 
 		int *lohi = malloc(2*sizeof(int));
@@ -41,7 +42,7 @@ int *binary_search(int term, int *list, int hi, int lo)
 		return lohi;
 	}
 
-	if (hi == lo)
+	if (hi <= lo)
 		return NULL;
 	else if (list[ref] < term)
 		return binary_search(term, list, hi, ++ref);
@@ -58,6 +59,8 @@ void initialize_record(struct record_t *record)
 	memset(record->message, '\0', MAX_MSG_LEN);
 	for (int i = 0; i < 8; i++)
 		memset(record->tags[i], '\0', MAX_TAG_LEN);
+
+	record->amount = NAN;
 
 	return;
 }
@@ -353,8 +356,6 @@ int *search_recs_tags(char tags[8][32], struct record_t *records, int bound1, in
 
 int *search_records(struct record_t *records, int n_recs, struct search_param_t params)
 {
-	/* TODO condense this nasty function into smaller routines */
-	/* TODO consider writing a generic binary search algorithm that accepts an int* and use that generically where searches are required */
 	int *err_stat = malloc(sizeof(int));
 	int *amt_matches = NULL;
 	int *tag_matches = NULL;
@@ -385,6 +386,7 @@ int *search_records(struct record_t *records, int n_recs, struct search_param_t 
 		hi = tmp[1];
 		free(tmp);
 	/* if a date range is being searched */
+	// TODO somewhere this isn't returning the full range of dates following a singular lookup
 	} else if (params.date1 != 0 && params.date2 != 0) {
 		int *tmp1 = NULL;
 		int *tmp2 = NULL;
@@ -437,35 +439,6 @@ int *search_records(struct record_t *records, int n_recs, struct search_param_t 
 		return err_stat;
 	/* both parameters return results */
 	} else {
-		///* build final matches array by comparing whether an index is shared
-		// * between the results of the amount and tag searches */
-		//int a_i = 1; /* index in amt_matches */
-		//int t_i = 1; /* index in tag_matches */
-		//int n_matches = 0;
-		///* doesn't matter if array is set up to contain all of amt or tag matches */
-		//match_inds = malloc((amt_matches[0]+1)*sizeof(int));
-
-		///* this loop checks for matches by iterating through the two results
-		// * arrays and alternates between incrementing forward through either
-		// * array when no match is found (ensures all elements are compared. */
-		///* TODO: this comparison algo is likely flawed in some way... produces bad results when -p -i 20210716 20210822 -q tag1 is passed */
-		///* TODO fix this shit. Traversal algorithm leaves searches incomplete. Consider using binary search of each term in smaller list to bigger one (see above todo) */
-		//int *inc = &a_i; /* this pointer decides which index to increment */
-		//while (a_i <= amt_matches[0] && t_i <= tag_matches[0]) {
-		//	if (tag_matches[t_i] == amt_matches[a_i]) {
-		//		match_inds[n_matches+1] = tag_matches[t_i];
-		//		t_i++;
-		//		a_i++;
-		//		inc = (inc == &a_i ? &t_i : &a_i);
-		//		n_matches++;
-		//		continue;
-		//	}
-		//	*inc += 1;
-		//}
-		///* reallocates to match number of matches */
-		//match_inds = realloc(match_inds, (n_matches+1)*sizeof(int));
-		//match_inds[0] = n_matches;
-
 		int n_matches = 0;
 		match_inds = malloc((amt_matches[0]+1)*sizeof(int));
 

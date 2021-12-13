@@ -6,6 +6,7 @@
 #include <ctype.h>
 #include <string.h>
 #include <stdlib.h>
+#include <limits.h>
 
 #include "backend.h"
 #include "io.h"
@@ -327,9 +328,10 @@ int get_date_LONG(char *argv[], int *index, int *last_days, int *date)
 	*date += atoi(dy) * 1;
 	return FALSE;
 }
-int get_date(char *argv[], int *index, int format, int *date)
+int get_date(char *argv[], int *index, int format, int *date, int accept_inf)
 {
 	*index+=1;
+	int error = !accept_inf;
 
 	if (*date != 0) {
 		fprintf(stderr, "Error: multiple definitions of date.\n");
@@ -340,10 +342,23 @@ int get_date(char *argv[], int *index, int format, int *date)
 		return TRUE;
 	}
 
+	float inf_arg = strtof(argv[*index], NULL);
+	if (fabs(inf_arg) == INFINITY) {
+		if (accept_inf) {
+			if (inf_arg < 0)
+				*date = INT_MIN;
+			else
+				*date = INT_MAX;
+			return FALSE;
+		} 
+		fprintf(stderr, "Error: passing infinity for a date is not permitted here.\n");
+		return TRUE;
+	}
+
 	/* final day of each month, Jan to Dec */
 	int max_days[] = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
 
-	int error = FALSE;
+	error = FALSE;
 	switch (format) {
 	case DATE_ISO:
 		error = get_date_ISO(argv[*index], max_days, date);
@@ -373,15 +388,19 @@ int get_current_date()
 	return date;
 }
 
-int get_amount(char *argv[], int *index, float *amount, int assume_negative)
+int get_amount(char *argv[], int *index, float *amount, int assume_negative, int accept_inf)
 {
 	errno = 0;
 	char *end;
 	float tmp = strtof(argv[*index], &end);
 
-	if(errno || *end) {
+	if (errno || *end) {
 		fprintf(stderr, "Error: \"%s\" not a valid expression of amount.\n",
 				argv[*index]);
+		return TRUE;
+	}
+	if (fabs(tmp) == INFINITY && !accept_inf) {
+		fprintf(stderr, "Error: passing infinity for an amount is not permitted here.\n");
 		return TRUE;
 	}
 	if (assume_negative && argv[*index][0] != '+' && argv[*index][0] != '-')
@@ -412,10 +431,10 @@ int get_new_records(int argc, char *argv[], int *index, int date_frmt, struct Ne
 			break;
 		case DATE_S:
 		case DATE_L:
-			error = get_date(argv, index, date_frmt, &(record->data.date));
+			error = get_date(argv, index, date_frmt, &(record->data.date), FALSE);
 			break;
 		case -1:
-			error = get_amount(argv, index, &(record->data.amount), TRUE);
+			error = get_amount(argv, index, &(record->data.amount), TRUE, FALSE);
 			if (error) 
 				return TRUE;
 
@@ -431,7 +450,7 @@ int get_new_records(int argc, char *argv[], int *index, int date_frmt, struct Ne
 	add_flag = FALSE;
 	if (isnan(record->data.amount)) {
 		error = TRUE;
-	} else {
+	} else if (!error) {
 		add2front(new_records, record);
 		add_flag = TRUE;
 
@@ -463,9 +482,9 @@ int get_print_commands(int argc, char *argv[], int *index, int date_frmt, struct
 			break;
 		case INTERVAL_S:
 		case INTERVAL_L:
-			error = get_date(argv, index, date_frmt, &(params->date1));
+			error = get_date(argv, index, date_frmt, &(params->date1), TRUE);
 			if (!error && *index < argc-1 && is_cmdline_option(argv[*index+1]) == -1) {
-				error = get_date(argv, index, date_frmt, &(params->date2));
+				error = get_date(argv, index, date_frmt, &(params->date2), TRUE);
 				if (error)
 					*index -= 1;
 			}
@@ -480,19 +499,23 @@ int get_print_commands(int argc, char *argv[], int *index, int date_frmt, struct
 		case RANGE_S:
 		case RANGE_L:
 			*index += 1;
-			if (params->amnt_bound2 != INFINITY) {
+			if (!isnan(params->amnt_bound2)) {
 				error = TRUE;
 				fprintf(stderr, "Error: multiple definitions of amount range.\n");
 				break;
 			}
 
-			error = get_amount(argv, index, &(params->amnt_bound1), FALSE);
+			/* get first bound */
+			error = get_amount(argv, index, &(params->amnt_bound1), FALSE, TRUE);
+			/* if the next argument is a number, read that as bound2 */
 			if (!error && *index < argc && is_cmdline_option(argv[*index]) == -1)
-				error = get_amount(argv, index, &(params->amnt_bound2), FALSE);
-			else if (params->amnt_bound1 < 0)
-				params->amnt_bound2 = -INFINITY;
+				error = get_amount(argv, index, &(params->amnt_bound2), FALSE, TRUE);
 
-			if (params->amnt_bound1 > params->amnt_bound2) {
+			/* if bound2 goes unitialized, make it ==bound1 so we search for that amount only */
+			if (isnan(params->amnt_bound2)) {
+				params->amnt_bound2 = params->amnt_bound1;
+			/* reorder bounds if necessary so bound1 < bound2 (for search function */
+			} else if (params->amnt_bound1 > params->amnt_bound2) {
 				float tmp = params->amnt_bound2;
 				params->amnt_bound2 = params->amnt_bound1;
 				params->amnt_bound1 = tmp;
@@ -510,6 +533,7 @@ int get_print_commands(int argc, char *argv[], int *index, int date_frmt, struct
 				break;
 			}
 
+			/* sorting the records will be handled in the print function */
 			params->sort_flag = TRUE;
 			break;
 		case -1:

@@ -38,9 +38,8 @@ int main(int argc, char *argv[])
 	//conditionally enter edit mode
 	int *prints = search_records(records, n_recs, print_params);
 	if (*prints == -1)
-		fprintf(stderr, "Error: date %i not found.\n", print_params.date1);
+		fprintf(stderr, "Error: no records in date range %i, %i.\n", print_params.date1, print_params.date2);
 	else if (*prints == -2)
-		// TODO adjust this to indicate failure to find records within the given range
 		fprintf(stderr, "Error: date %i not found.\n", print_params.date2);
 	else if (*prints == -3)
 		fprintf(stderr, "Error: no records in amount range %.2f, %.2f.\n", print_params.amnt_bound1, print_params.amnt_bound2);

@@ -2,6 +2,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <float.h>
+#include <limits.h>
 
 #include "backend.h"
 #include "io.h"
@@ -68,8 +69,8 @@ void initialize_record(struct record_t *record)
 
 void init_search_params(struct search_param_t *params)
 {
-	params->amnt_bound1 = -INFINITY;
-	params->amnt_bound2 = INFINITY;
+	params->amnt_bound1 = NAN;
+	params->amnt_bound2 = NAN;
 	params->date1 = params->date2 = 0;
 	params->sort_flag = 0;
 
@@ -177,12 +178,11 @@ struct record_t *get_records_array(FILE *infile, int num_records, float *total)
 		line[strlen(line)-1] = '\0'; /* erases newline */
 		char **rec_elements = get_elements(line);
 
-		int max_days[] = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
-		int index = 1;
+		int index = 0;
 
 		initialize_record(&records[i]);
 		records[i].amount = atof(rec_elements[0]);
-		get_date_ISO(rec_elements[1], max_days, &(records[i].date));
+		get_date(rec_elements, &index, DATE_ISO, &(records[i].date), TRUE);
 		get_message(rec_elements, &index, records[i].message);
 		if (rec_elements[3][0] != '\0')
 			get_tags(rec_elements, &index, records[i].tags);
@@ -288,6 +288,11 @@ int *search_recs_date(int param, struct record_t *records, int hi, int lo)
 
 int *search_recs_amount(float amnt1, float amnt2, struct record_t *records, int bound1, int bound2)
 {
+	if (isnan(amnt1) && isnan(amnt2)) {
+		amnt1 = -INFINITY;
+		amnt2 =  INFINITY;
+	}
+
 	int *match_indices = malloc((bound2-bound1+2)*sizeof(int));
 	match_indices[0] = 0;
 
@@ -365,8 +370,8 @@ int *search_records(struct record_t *records, int n_recs, struct search_param_t 
 
 	/* search priority: date -> amounts -> tags */
 	/* table of error return values:
-	 *   -1: lower date parameter returns no results
-	 *   -2: upper (or singular) date parameter returns no results
+	 *   -1: no records within date range returned
+	 *   -2: singular date parameter returns no results
 	 *   -3: amount parameter returns no results
 	 *   -4: tags parameter returns no results
 	 *   -5: amount and tags parameters return no results */
@@ -386,8 +391,13 @@ int *search_records(struct record_t *records, int n_recs, struct search_param_t 
 		hi = tmp[1];
 		free(tmp);
 	/* if a date range is being searched */
-	// TODO somewhere this isn't returning the full range of dates following a singular lookup
 	} else if (params.date1 != 0 && params.date2 != 0) {
+		if (params.date1 == INT_MIN) 
+			params.date1 = records[lo].date;
+		if (params.date2 == INT_MAX)
+			params.date2 = records[hi].date;
+		
+
 		int *tmp1 = NULL;
 		int *tmp2 = NULL;
 
@@ -405,10 +415,7 @@ int *search_records(struct record_t *records, int n_recs, struct search_param_t 
 		}
 
 		if (tmp1 == NULL || tmp2 == NULL) {
-			if (tmp2 == NULL)
-				*err_stat = -2;
-			else 
-				*err_stat = -1;
+			*err_stat = -1;
 			free(tmp1);
 			free(tmp2);
 			return err_stat;

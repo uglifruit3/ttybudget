@@ -5,4 +5,5 @@ test
 temp
 temp.txt
 records.txt
-records.txt
+todo.txt
+.*.swp

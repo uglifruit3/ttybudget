@@ -53,10 +53,10 @@ int get_message(char *argv[], int *index, char message[256]);
 int get_date_ISO(char *date_str, int *last_days, int *date);
 int get_date_US(char *date_str, int *last_days, int *date);
 int get_date_LONG(char *argv[], int *index, int *last_days, int *date);
-int get_date(char *argv[], int *index, int format, int *date);
+int get_date(char *argv[], int *index, int format, int *date, int accept_inf);
 
 /* obtains an amount from a record when adding records */
-int get_amount(char *argv[], int *index, float *amount, int assume_negative);
+int get_amount(char *argv[], int *index, float *amount, int assume_negative, int accept_inf);
 
 /* obtains a linked list representation of all new records when the add option is specified */
 int get_new_records(int argc, char *argv[], int *index, int date_frmt, struct NewRecs_t **new_records);

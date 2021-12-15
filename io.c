@@ -30,6 +30,10 @@ void free_list(struct NewRecs_t *list)
 	while (list != NULL) {
 		to_free = list;
 		list = list->next;
+
+		for (int i = 0; i < to_free->data.n_tags; i++)
+			free(to_free->data.tags[i]);
+		free(to_free->data.tags);
 		free(to_free);
 	}	
 }
@@ -110,11 +114,11 @@ void chng_date_frmt(int *format_enum, int new_format)
 	return;
 }
 
-int get_tags(char *argv[], int *index, char tags[8][32])
+int get_tags(char *argv[], int *index, char ***tags, int *n_tags)
 {
 	*index += 1;
 
-	if (tags[0][0] != '\0') {
+	if (*n_tags != 0) {
 		fprintf(stderr, "Error: multiple definitions of tags.\n");
 		return TRUE;
 	}
@@ -122,14 +126,25 @@ int get_tags(char *argv[], int *index, char tags[8][32])
 		fprintf(stderr, "Error: no argument given for tags option.\n");
 		return TRUE;
 	}
+
 	int i, j, k;
 	i = j = k = 0;
+	char *tag_list = argv[*index];
+	*n_tags = 1;
+	while (i < strlen(tag_list)) {
+		if (tag_list[i] == ',')
+			*n_tags += 1;
+		i++;
+	}
+	char **tmptags = malloc(*n_tags * sizeof(char*));
+	i = 0;
+
 	char temp[MAX_TAG_LEN];
 	memset(temp, '\0', MAX_TAG_LEN);
-	char *tag_list = argv[*index];
 	while (i < strlen(tag_list)) {
 		if (tag_list[i] == ',') {
-			strncpy(tags[j], temp, MAX_TAG_LEN);
+			tmptags[j] = calloc(MAX_TAG_LEN, sizeof(char));
+			strncpy(tmptags[j], temp, MAX_TAG_LEN);
 			j++; i++;
 			k = 0;
 			memset(temp, '\0', MAX_TAG_LEN);
@@ -143,15 +158,14 @@ int get_tags(char *argv[], int *index, char tags[8][32])
 		} else if (k == MAX_TAG_LEN) {
 			fprintf(stderr, "Error: tag name too long (max 32 chars).\n");
 			return TRUE;
-		} else if (j > 7) {
-			fprintf(stderr, "Error: max number of tags (8) exceeded.\n");
-			return TRUE;
 		}
 
 		temp[k] = tag_list[i];	
 		k++; i++;
 	}
-	strncpy(tags[j], temp, MAX_TAG_LEN);
+	tmptags[j] = calloc(MAX_TAG_LEN, sizeof(char));
+	strncpy(tmptags[j], temp, MAX_TAG_LEN);
+	*tags = tmptags;
 
 	return FALSE;
 }
@@ -435,7 +449,7 @@ int get_new_records(int argc, char *argv[], int *index, int date_frmt, struct Ne
 		switch (is_cmdline_option(argv[*index])) {
 		case TAGS_S:
 		case TAGS_L:
-			error = get_tags(argv, index, record->data.tags);
+			error = get_tags(argv, index, &(record->data.tags), &(record->data.n_tags));
 			break;
 		case MESSAGE_S:
 		case MESSAGE_L:
@@ -493,7 +507,7 @@ int get_print_commands(int argc, char *argv[], int *index, int date_frmt, struct
 		switch (is_cmdline_option(argv[*index])) {
 		case QUERY_S:
 		case QUERY_L:
-			error = get_tags(argv, index, params->tags);
+			error = get_tags(argv, index, &(params->tags), &(params->n_tags));
 			break;
 		case INTERVAL_S:
 		case INTERVAL_L:

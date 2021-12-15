@@ -31,7 +31,7 @@ int main(int argc, char *argv[])
 	
 	infile = open_records_file(infile_name);
 	n_recs = get_num_records(infile);
-	free(records);
+	free_recs_array(records, n_recs);
 	records = get_records_array(infile, n_recs, &tot_cash);
 	fclose(infile);
 
@@ -62,14 +62,17 @@ int main(int argc, char *argv[])
 		 	records[i].amount,
 			records[i].date,
 			records[i].message);
-		printf("  %s", records[i].tags[0]);		
-		for (int j = 1; j < 8; j++)
-			printf(", %s", records[i].tags[j]);		
+		if (records[i].n_tags != 0) {
+			printf(" %s", records[i].tags[0]);
+			for (int j = 1; j < records[i].n_tags; j++)
+				printf(",%s", records[i].tags[j]);
+		}
 		putchar('\n');
 	}
 
 	free_list(new_records);
 	free(prints);
-	free(records);
+	free_recs_array(records, n_recs);
+	free_search_params(print_params);
 	return 0;
 }

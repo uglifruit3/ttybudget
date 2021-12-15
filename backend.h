@@ -9,13 +9,13 @@
 #define MAX_TAG_LEN 32
 #define MAX_MSG_LEN 256
 
-// TODO having a limit of 8 tags if kind of a pussy thing to do... see if possible to have infinite while tampering with codebase as little as possible
 /* structure for handling records data */
 struct record_t {
 	float amount;
 	int date;
 	char message[MAX_MSG_LEN];
-	char tags[8][MAX_TAG_LEN];
+	int n_tags;
+	char **tags;
 };
 
 /* structure for specifying records during print/lookup operations */
@@ -24,7 +24,8 @@ struct search_param_t {
 	float amnt_bound2;
 	int date1;
 	int date2;
-	char tags[8][MAX_TAG_LEN];
+	int n_tags;
+	char **tags;
 	int sort_flag;
 };
 
@@ -37,8 +38,12 @@ int *binary_search(int term, int *list, int hi, int lo);
 
 /* initializes a record for population */
 void initialize_record(struct record_t *record);
+/* frees an array of records */
+void free_recs_array(struct record_t *records, int n_recs);
 /* initializes a search parameter for population */
 void init_search_params(struct search_param_t *search_param);
+/* frees the dynamically allocated tags in search_params */
+void free_search_params(struct search_param_t search_param);
 
 /* formats and prints a record structure to the record file */
 void print_rec_to_file(FILE *outfile, struct record_t record);
@@ -63,7 +68,7 @@ int *search_recs_date(int date, struct record_t *records, int hi, int lo);
 int *search_recs_amount(float amnt1, float amnt2, struct record_t *records, int bound1, int bound2);
 /* returns the indices of all records that contain one of the specified tags within bound1 
  * and bound2; return behavior is same as amount search */
-int *search_recs_tags(char tags[8][MAX_TAG_LEN], struct record_t *records, int bound1, int bound2);
+int *search_recs_tags(char **tags, int n_tags, struct record_t *records, int bound1, int bound2);
 int *search_records(struct record_t *records, int n_recs, struct search_param_t params);
 
 void add_records(struct NewRecs_t *new_recs, struct record_t *records, int *n_recs, char *rec_filename, float tot_cash);

@@ -44,7 +44,7 @@ void chng_date_frmt(int *format_enum, int new_format);
 /* obtains tags from the -t option when adding or -q option when printing; *index 
  * should point to the index of the "-t" flag and will be incremented to the 
  * element following tag arguments */
-int get_tags(char *argv[], int *index, char tags[8][32]);
+int get_tags(char *argv[], int *index, char ***tags, int *n_tags);
 /* obtains a message from the -m option when adding records; *index is used and altered
  * as in get_tags */
 int get_message(char *argv[], int *index, char message[256]);

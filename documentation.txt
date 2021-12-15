@@ -18,7 +18,7 @@ OPTIONS
 
    ADD OPTIONS
       -t TAG_A,TAG_B, ..., --tags TAG_A,TAG_B, ...
-         Specify one or more searchable tags associated with the added financial record. Tags are specified in a comma-delimited list, with no spaces between. If not used, no tag is associated with the record. A record can contain no more than 8 tags.
+         Specify one or more searchable tags associated with the added financial record. Tags are specified in a comma-delimited list, with no spaces between. If unused, no tag is associated with the record. A record can contain any number of tags.
       -m "MESSAGE", --message "MESSAGE"
          Specify a message associated with the added financial record. MESSAGE is enclosed in double quotation marks and has a maximum length of 256 characters. If not used, no message is associated with the record.
       -d DATE, --date DATE

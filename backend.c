@@ -58,14 +58,26 @@ void initialize_record(struct record_t *record)
 	record->date = 0;
 
 	memset(record->message, '\0', MAX_MSG_LEN);
-	for (int i = 0; i < 8; i++)
-		memset(record->tags[i], '\0', MAX_TAG_LEN);
+	record->n_tags = 0;
 
 	record->amount = NAN;
 
 	return;
 }
 
+void free_recs_array(struct record_t *records, int n_recs)
+{
+	for (int i = 0; i < n_recs; i++) {
+		if (records[i].n_tags == 0)
+			continue;
+
+		for (int j = 0; j < records[i].n_tags; j++)
+			free(records[i].tags[j]);
+		free(records[i].tags);
+	}
+
+	free(records);
+}
 
 void init_search_params(struct search_param_t *params)
 {
@@ -74,18 +86,27 @@ void init_search_params(struct search_param_t *params)
 	params->date1 = params->date2 = 0;
 	params->sort_flag = 0;
 
-	for (int i = 0; i < 8; i++)
-		memset(params->tags[i], '\0', MAX_TAG_LEN);
+	params->n_tags = 0;
 
 	return;
+}
+
+void free_search_params(struct search_param_t search_param)
+{
+	if (search_param.n_tags == 0) 
+		return;
+
+	for (int i = 0; i < search_param.n_tags; i++)
+		free(search_param.tags[i]);
+	free(search_param.tags);
 }
 
 void print_rec_to_file(FILE *outfile, struct record_t record)
 {
 	fprintf(outfile, "%.2f %i \"%s\" ", record.amount, record.date, record.message);
-	if (record.tags[0][0] != '\0') {
+	if (record.n_tags != 0) {
 		fprintf(outfile, "%s", record.tags[0]);
-		for (int i = 1; record.tags[i][0] != '\0'; i++)
+		for (int i = 1; i < record.n_tags; i++)
 			fprintf(outfile, ",%s", record.tags[i]);
 	}
 	fputc('\n', outfile);
@@ -185,7 +206,7 @@ struct record_t *get_records_array(FILE *infile, int num_records, float *total)
 		get_date(rec_elements, &index, DATE_ISO, &(records[i].date), TRUE);
 		get_message(rec_elements, &index, records[i].message);
 		if (rec_elements[3][0] != '\0')
-			get_tags(rec_elements, &index, records[i].tags);
+			get_tags(rec_elements, &index, &(records[i].tags), &(records[i].n_tags));
 
 		free_array(rec_elements, 4);
 
@@ -315,10 +336,10 @@ int *search_recs_amount(float amnt1, float amnt2, struct record_t *records, int 
 	return match_indices;
 }
 
-int *search_recs_tags(char tags[8][MAX_TAG_LEN], struct record_t *records, int bound1, int bound2)
+int *search_recs_tags(char **tags, int n_tags, struct record_t *records, int bound1, int bound2)
 {
 	/* if tags are unitialized, don't bother searching for tags */
-	if (tags[0][0] == '\0') {
+	if (n_tags == 0) {
 		int *matches = malloc((bound2-bound1+2)*sizeof(int));
 		matches[0] = bound2 - bound1 + 1;
 		for (int i = bound1; i <= bound2; i++)
@@ -326,8 +347,8 @@ int *search_recs_tags(char tags[8][MAX_TAG_LEN], struct record_t *records, int b
 		return matches;
 	}
 
-	char **tags_cpy = malloc(8*sizeof(char*));
-	for (int i = 0; i < 8; i++) {
+	char **tags_cpy = malloc(n_tags*sizeof(char*));
+	for (int i = 0; i < n_tags; i++) {
 		tags_cpy[i] = malloc(MAX_TAG_LEN*sizeof(char));
 		strcpy(tags_cpy[i], tags[i]);
 	}
@@ -337,8 +358,8 @@ int *search_recs_tags(char tags[8][MAX_TAG_LEN], struct record_t *records, int b
 
 	int j = 1;
 	for (int i = bound1; i <= bound2; i++) {
-		for (int k = 0; k < 8; k++) {
-			if (string_in_list(records[i].tags[k], tags_cpy, 8) != -1) {
+		for (int k = 0; k < records[i].n_tags; k++) {
+			if (string_in_list(records[i].tags[k], tags_cpy, n_tags) != -1) {
 				match_indices[j] = i;
 				j++;
 				match_indices[0]++;
@@ -347,7 +368,7 @@ int *search_recs_tags(char tags[8][MAX_TAG_LEN], struct record_t *records, int b
 		}
 
 	}
-	free_array(tags_cpy, 8);
+	free_array(tags_cpy, n_tags);
 
 	if (match_indices[0] > 0) {
 		match_indices = realloc(match_indices, (match_indices[0]+1)*sizeof(int));
@@ -430,7 +451,7 @@ int *search_records(struct record_t *records, int n_recs, struct search_param_t 
 	/* get matches for amt and tag searches */
 	/* amount param is always initialized, no need for branching */
 	amt_matches = search_recs_amount(params.amnt_bound1, params.amnt_bound2, records, lo, hi);
-	tag_matches = search_recs_tags(params.tags, records, lo, hi);
+	tag_matches = search_recs_tags(params.tags, params.n_tags, records, lo, hi);
 
 	/* results are not returned for the amt or tag parameters */
 	if (amt_matches == NULL || tag_matches == NULL) {

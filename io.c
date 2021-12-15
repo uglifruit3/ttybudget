@@ -49,26 +49,26 @@ int string_in_list(char *string, char **list, int num_list_items)
 int is_cmdline_option(char *str1)
 {
 	const char *cmdline_opts[] = {
-		"-a", "--add",                /* 0-1 add */
-			"-t", "--tags",       /* 2-7 add options */
+		"-a", "--add",                              /* 0-1 add */
+			"-t", "--tags",                     /* 2-7 add options */
 			"-m", "--message",
 			"-d", "--date",
-		"-p", "--print",              /* 8-9 print */
-		"-e", "--edit",               /* 10-11 edit */
-			"-q", "--query-tags", /* 12-17 print options */
+		"-p", "--print",                            /* 8-9 print */
+		"-e", "--edit",                             /* 10-11 edit */
+			"-q", "--query-tags",               /* 12-17 print options */
 			"-i", "--interval",
 			"-r", "--range",
 			"-s", "--sort",
 		"-h", "--help",
 		"-v", "--version",
-		"--iso", "--us", "--long",    /* 24-26 date formats */
-		"--base-dir",                 /* 27-31 config options */
+		"--iso", "--us", "--long", "--long-abbr",   /* 24-27 date formats */
+		"--base-dir",                               /* 28-32 config options */
 		"--currency",
-		"--output-date-format",
-		"--input-date-format",
+		"--date-in",
+		"--date-out",
 		"--use-file"
 	};
-	const int num_opts = 32;
+	const int num_opts = 33;
 
 	int opt = string_in_list(str1, (char **)cmdline_opts, num_opts);
 			
@@ -79,6 +79,7 @@ FILE *open_records_file(char file_name[256])
 {
 	FILE *records_file = fopen(file_name, "r");
 
+	/* initializes records file to a starting amount of money */
 	if (!records_file) {
 		float amount;
 		char line[256];
@@ -178,126 +179,12 @@ int get_message(char *argv[], int *index, char message[256])
 	return FALSE;
 }
 
-int get_date_ISO(char *date_str, int *last_days, int *date)
-{
-	char yr[5], mo[3], dy[3];
-	int mo_mod = 0, dy_mod = 0;
-	int date_len = 8;
-	/* YYYYMMDD   YYYY-MM-DD */
-	/* 01234567   0123456789 */
-	if (date_str[4] == '-' || date_str[4] == '/') {
-		if (date_str[7] != date_str[4]) {
-			fprintf(stderr, "Error: date expression \"%s\" is not consistently delimited.\n", date_str);
-			return TRUE;
-		} 
-		date_len = 10;
-	}
-
-	if (strlen(date_str) != date_len) {
-		fprintf(stderr, "Error: date expression \"%s\" is not correctly formatted.\n", date_str);
-		return TRUE;
-	} else if (date_len == 10) {
-		mo_mod = 1;
-		dy_mod = 2;
-	}
-
-	for (int i = 0; i < 4; i++) {
-		yr[i] = date_str[i];
-		if (!(yr[i] >= '0' && yr[i] <= '9')) {
-			fprintf(stderr, "Error: date expression \"%s\" is invalid.\n", date_str);
-			return TRUE;
-		}
-	}
-	for (int i = 0; i < 2; i++) {
-		mo[i] = date_str[4+i+mo_mod];
-		dy[i] = date_str[6+i+dy_mod];
-		if (!(mo[i] >= '0' && mo[i] <= '9') || !(dy[i] >= '0' && dy[i] <= '9')) {
-			fprintf(stderr, "Error: date expression \"%s\" is invalid.\n", date_str);
-			return TRUE;
-		}
-	}
-	yr[4] = mo[2] = dy[2] = '\0';
-
-	if (atoi(yr) % 4 == 0)
-		last_days[1] = 29;
-
-	if (!(atoi(mo) >= 1 && atoi(mo) <= 12)) {
-		fprintf(stderr, "Error: month in date expression \"%s\" outside valid range (1-12).\n", date_str);
-		return TRUE;
-	} else if (!(atoi(dy) >= 1 && atoi(dy) <= last_days[atoi(mo)-1])) {
-		fprintf(stderr, "Error: day in date expression \"%s\" is not a calendar day.\n", date_str);
-		return TRUE;
-	}
-
-	*date += atoi(yr) * 10000;
-	*date += atoi(mo) * 100;
-	*date += atoi(dy) * 1;
-	return FALSE;
-}
-int get_date_US(char *date_str, int *last_days, int *date)
-{
-	char yr[5], mo[3], dy[3];
-	int dy_mod = 0, yr_mod = 0;
-	int date_len = 8;
-	/* MMDDYYYY   MM-DD-YYYY */
-	/* 01234567   0123456789 */
-	if (date_str[2] == '-' || date_str[2] == '/') {
-		if (date_str[5] != date_str[2]) {
-			fprintf(stderr, "Error: date expression \"%s\" is not consistently delimited.\n", date_str);
-			return TRUE;
-		} 
-		date_len = 10;
-	}
-
-	if (strlen(date_str) != date_len) {
-		fprintf(stderr, "Error: date expression \"%s\" is not correctly formatted.\n", date_str);
-		return TRUE;
-	} else if (date_len == 10) {
-		dy_mod = 1;
-		yr_mod = 2;
-	}
-
-	for (int i = 0; i < 2; i++) {
-		mo[i] = date_str[i];
-		dy[i] = date_str[i+2+dy_mod];
-		if (!(mo[i] >= '0' && mo[i] <= '9') || !(dy[i] >= '0' && dy[i] <= '9')) {
-			fprintf(stderr, "Error: date expression \"%s\" is invalid.\n", date_str);
-			return TRUE;
-		}
-	}
-	for (int i = 0; i < 4; i++) {
-		yr[i] = date_str[i+4+yr_mod];
-		if (!(yr[i] >= '0' && yr[i] <= '9')) {
-			fprintf(stderr, "Error: date expression \"%s\" is invalid.\n", date_str);
-			return TRUE;
-		}
-	}
-	yr[4] = mo[2] = dy[2] = '\0';
-
-	if (atoi(yr) % 4 == 0)
-		last_days[1] = 29;
-
-	if (!(atoi(mo) >= 1 && atoi(mo) <= 12)) {
-		fprintf(stderr, "Error: month in date expression \"%s\" outside valid range (1-12).\n", date_str);
-		return TRUE;
-	} else if (!(atoi(dy) >= 1 && atoi(dy) <= last_days[atoi(mo)-1])) {
-		fprintf(stderr, "Error: day in date expression \"%s\" is not a calendar day.\n", date_str);
-		return TRUE;
-	}
-
-	*date += atoi(yr) * 10000;
-	*date += atoi(mo) * 100;
-	*date += atoi(dy) * 1;
-	return FALSE;
-}
 int get_date_LONG(char *argv[], int *index, int *last_days, int *date)
 {
 	char yr[5], dy[3];
 	char str_mo[10];
-	if (!argv[*index+2] || (strlen(argv[*index]) != 2 || strlen(argv[*index+2]) != 4)) {
-		fprintf(stderr, "Error: date expression \"%s\" is invalid.\n", argv[*index]);
-		return TRUE;
-	}
+	if (!argv[*index+2] || (strlen(argv[*index]) != 2 || strlen(argv[*index+2]) != 4))
+		return 3;
 
 	strncpy(dy, argv[*index], 3);
 	strncpy(str_mo, argv[*index+1], 10);
@@ -307,11 +194,15 @@ int get_date_LONG(char *argv[], int *index, int *last_days, int *date)
 		str_mo[i] = tolower(str_mo[i]);
 	}
 
-	char *months[] = {"january", "february", "march", "april", "may", "june", "july", "august", "september", "october", "november", "december"};
-	int num_mo = string_in_list(str_mo, months, 12) + 1;
+	char *months_long[]  = {"january", "february", "march", "april", "may", "june", "july", "august", "september", "october", "november", "december"};
+	char *months_short[] = {"jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"};
+	int num_mo = string_in_list(str_mo, months_long, 12) + 1;
 	if (num_mo == 0) {
-		fprintf(stderr, "Error: month \"%s\" is not valid.\n", argv[*index+1]);
-		return TRUE;
+		num_mo = string_in_list(str_mo, months_short, 12) + 1;
+		if (num_mo == 0) {
+			fprintf(stderr, "Error: month \"%s\" is not valid.\n", argv[*index+1]);
+			return 6;
+		}
 	}
 
 	if (atoi(yr) % 4 == 0)
@@ -319,7 +210,7 @@ int get_date_LONG(char *argv[], int *index, int *last_days, int *date)
 
 	if (!(atoi(dy) >= 1 && atoi(dy) <= last_days[num_mo-1])) {
 		fprintf(stderr, "Error: day in date expression \"%s\" is not a calendar day.\n", dy);
-		return TRUE;
+		return 6;
 	}
 
 	*index += 2;
@@ -328,10 +219,105 @@ int get_date_LONG(char *argv[], int *index, int *last_days, int *date)
 	*date += atoi(dy) * 1;
 	return FALSE;
 }
+int get_date_ISO(char *date_str, int *last_days, int *date, char *argv[], int *index)
+{
+	char yr[5], mo[3], dy[3];
+	int mo_mod = 0, dy_mod = 0;
+	int date_len = 8;
+	/* YYYYMMDD   YYYY-MM-DD */
+	/* 01234567   0123456789 */
+	if (date_str[4] == '-' || date_str[4] == '/') {
+		if (date_str[7] != date_str[4])
+			return 1;
+		date_len = 10;
+	}
+
+	if (strlen(date_str) != date_len) {
+		if (strlen(date_str) == 2) 
+			return get_date_LONG(argv, index, last_days, date);
+		return 2;
+	} else if (date_len == 10) {
+		mo_mod = 1;
+		dy_mod = 2;
+	}
+
+	for (int i = 0; i < 4; i++) {
+		yr[i] = date_str[i];
+		if (!(yr[i] >= '0' && yr[i] <= '9')) 
+			return 3;
+	}
+	for (int i = 0; i < 2; i++) {
+		mo[i] = date_str[4+i+mo_mod];
+		dy[i] = date_str[6+i+dy_mod];
+		if (!(mo[i] >= '0' && mo[i] <= '9') || !(dy[i] >= '0' && dy[i] <= '9')) 
+			return 3;
+	}
+	yr[4] = mo[2] = dy[2] = '\0';
+
+	if (atoi(yr) % 4 == 0)
+		last_days[1] = 29;
+
+	if (!(atoi(mo) >= 1 && atoi(mo) <= 12))
+		return 4;
+	else if (!(atoi(dy) >= 1 && atoi(dy) <= last_days[atoi(mo)-1]))
+		return 5;
+
+	*date += atoi(yr) * 10000;
+	*date += atoi(mo) * 100;
+	*date += atoi(dy) * 1;
+	return FALSE;
+}
+int get_date_US(char *date_str, int *last_days, int *date, char *argv[], int *index)
+{
+	char yr[5], mo[3], dy[3];
+	int dy_mod = 0, yr_mod = 0;
+	int date_len = 8;
+	/* MMDDYYYY   MM-DD-YYYY */
+	/* 01234567   0123456789 */
+	if (date_str[2] == '-' || date_str[2] == '/') {
+		if (date_str[5] != date_str[2]) 
+			return 1;
+		date_len = 10;
+	}
+
+	if (strlen(date_str) != date_len) {
+		if (strlen(date_str) == 2) 
+			return get_date_LONG(argv, index, last_days, date);
+		return 2;
+	} else if (date_len == 10) {
+		dy_mod = 1;
+		yr_mod = 2;
+	}
+
+	for (int i = 0; i < 2; i++) {
+		mo[i] = date_str[i];
+		dy[i] = date_str[i+2+dy_mod];
+		if (!(mo[i] >= '0' && mo[i] <= '9') || !(dy[i] >= '0' && dy[i] <= '9'))
+			return 3;
+	}
+	for (int i = 0; i < 4; i++) {
+		yr[i] = date_str[i+4+yr_mod];
+		if (!(yr[i] >= '0' && yr[i] <= '9'))
+			return 3;
+	}
+	yr[4] = mo[2] = dy[2] = '\0';
+
+	if (atoi(yr) % 4 == 0)
+		last_days[1] = 29;
+
+	if (!(atoi(mo) >= 1 && atoi(mo) <= 12))
+		return 4;
+	else if (!(atoi(dy) >= 1 && atoi(dy) <= last_days[atoi(mo)-1]))
+		return 5;
+
+	*date += atoi(yr) * 10000;
+	*date += atoi(mo) * 100;
+	*date += atoi(dy) * 1;
+	return FALSE;
+}
 int get_date(char *argv[], int *index, int format, int *date, int accept_inf)
 {
-	*index+=1;
-	int error = !accept_inf;
+	*index += 1;
 
 	if (*date != 0) {
 		fprintf(stderr, "Error: multiple definitions of date.\n");
@@ -358,20 +344,46 @@ int get_date(char *argv[], int *index, int format, int *date, int accept_inf)
 	/* final day of each month, Jan to Dec */
 	int max_days[] = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
 
-	error = FALSE;
-	switch (format) {
-	case DATE_ISO:
-		error = get_date_ISO(argv[*index], max_days, date);
-		break;
-	case DATE_US:
-		error = get_date_US(argv[*index], max_days, date);
-		break;
-	case DATE_LONG:
+	int error = FALSE;
+	if (format == DATE_ISO) 
+		error = get_date_ISO(argv[*index], max_days, date, argv, index);
+	else if (format == DATE_US)
+		error = get_date_US(argv[*index], max_days, date, argv, index);
+	/* this option exists for redundancy's sake, if for some reason the date format is set to long or long-abbr */
+	else if (format == DATE_LONG || format == DATE_ABBR)
 		error = get_date_LONG(argv, index, max_days, date);
-		break;
+
+	/* table of return values for get_date functions:
+	 * 0/FALSE: no error
+	 * 1/TRUE:  bad delimeters
+	 * 2:       bad format
+	 * 3:       invalid date expression
+	 * 4:       invalid month value
+	 * 5:       invalid day value 
+	 * 6:       get_date_LONG returned an error (handles own output) */
+
+	switch (error) {
+	case 0:
+		return FALSE;
+	case 1:
+		fprintf(stderr, "Error: date expression \"%s\" is not consistently delimited.\n", argv[*index]);
+		return TRUE;
+	case 2:
+		fprintf(stderr, "Error: date expression \"%s\" is not correctly formatted.\n", argv[*index]);
+		return TRUE;
+	case 3:
+		fprintf(stderr, "Error: date expression \"%s\" is invalid.\n", argv[*index]);
+		return TRUE;
+	case 4:
+		fprintf(stderr, "Error: month in date expression \"%s\" outside valid range (1-12).\n", argv[*index]);
+		return TRUE;
+	case 5:
+		fprintf(stderr, "Error: day in date expression \"%s\" is not a calendar day.\n", argv[*index]);
+		return TRUE;
+	case 6: 
+		return TRUE;
 	}
-	if (error) return TRUE;
-	return FALSE;
+	return TRUE;
 }
 int get_current_date()
 {
@@ -406,7 +418,7 @@ int get_amount(char *argv[], int *index, float *amount, int assume_negative, int
 	if (assume_negative && argv[*index][0] != '+' && argv[*index][0] != '-')
 		tmp *= -1;
 
-	*index+=1;
+	*index += 1;
 	*amount = tmp;
 	return FALSE;
 }
@@ -442,14 +454,17 @@ int get_new_records(int argc, char *argv[], int *index, int date_frmt, struct Ne
 			break;
 		default:
 			*index -= 2; /* decrement by one so caller reads this argument */
+			/* add flag is set to escape the loop and process input */
 			add_flag = TRUE;
 			break;
 		}
 	}
 
 	add_flag = FALSE;
+	/* an amount has not been defined */
 	if (isnan(record->data.amount)) {
 		error = TRUE;
+	/* if an amount is defined and no errors are present */
 	} else if (!error) {
 		add2front(new_records, record);
 		add_flag = TRUE;
@@ -483,12 +498,14 @@ int get_print_commands(int argc, char *argv[], int *index, int date_frmt, struct
 		case INTERVAL_S:
 		case INTERVAL_L:
 			error = get_date(argv, index, date_frmt, &(params->date1), TRUE);
+			/* if no error, within argv still, and the next option is not another command read BOUND2 */
 			if (!error && *index < argc-1 && is_cmdline_option(argv[*index+1]) == -1) {
 				error = get_date(argv, index, date_frmt, &(params->date2), TRUE);
 				if (error)
 					*index -= 1;
 			}
 
+			/* must be ordered date1 < date2 for search function */
 			if (params->date1 > params->date2) {
 				int tmp = params->date2;
 				params->date2 = params->date1;
@@ -591,6 +608,7 @@ int parse_command_line(char *argv[], int argc, char filename[], struct NewRecs_t
 		case DATE_ISO: 
 		case DATE_US: 
 		case DATE_LONG:
+		case DATE_ABBR:
 			date_frmt = is_cmdline_option(argv[i]);
 			break;
 		case BASE_DIR: 

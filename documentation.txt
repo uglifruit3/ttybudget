@@ -3,7 +3,7 @@ SYNOPSIS
    ttybudget -p|--print [DATE_FORMAT] [PRINT_OPTIONS] 
    ttybudget -h|--help
    ttybudget -v|--version
-   ttybudget <CONFIG_OPTIONS>
+   ttybudget CONFIG_OPTIONS [MAIN_OPTIONS]
 
 OPTIONS
    MAIN OPTIONS
@@ -28,9 +28,9 @@ OPTIONS
       -q TAG_A,TAG_B,..., --query-tags TAG_A,TAG_B,...
          Only print financial records that are associated with the specified tag(s). Tags are specified using the same format as with the -t option.
       -i BOUND1 [BOUND2], --interval BOUND1 [BOUND2]
-         Only print financial records that occur between BOUND1 and BOUND2. Both bounds are specified using the set date format, as with the -d option and are inclusive (e.g., if BOUND1 is 2021-06-4, records on that date are included). If only BOUND1 is specified, only financial records that occured on the date of BOUND1 are displayed.
+         Only print financial records that occur between BOUND1 and BOUND2. Both bounds are specified using the set date format, as with the -d option and are inclusive (e.g., if BOUND1 is 2021-06-4, records on that date are included). The INFINITY macros may be used as bounds here. If only BOUND1 is specified, only financial records that occured on the date of BOUND1 are displayed.
       -r BOUND1 [BOUND2], --range BOUND1 [BOUND2]
-         Only print financial records whose amounts fall between BOUND1 and BOUND2. Bounds are specified as signed integers or floats with two places past the decimal. If BOUND2 is not specified, only records whose amounts match BOUND1 will be displayed. 
+         Only print financial records whose amounts fall between BOUND1 and BOUND2. Bounds are specified as signed integers or floats with two places past the decimal, and the INFINITY macros may be passed here. If BOUND2 is not specified, only records whose amounts match BOUND1 will be displayed. 
       -s, --sort
          Rather than printing financial records in chronological order, sort and print records from highest to lowest amounts.
 
@@ -40,14 +40,19 @@ OPTIONS
       --us
          Specifies US date format (MM/DD/YYYY). The same rules regarding slashes, dashes, or no delimiters as with iso format apply.
       --long
-         Specifies long date format, separated by spaces (DD Month YYYY).
+         Specifies long date format, separated by spaces (DD Month YYYY). When inputting dates, this format is always accepted in addition to either ISO or US.
+      --long-abbr 
+         Specifies the same format as --long, except the month is abbreviated to three letters. When inputting dates, this format is always accepted in addition to either ISO or US.
 
    CONFIG OPTIONS
       --base-dir BASE_DIRECTORY
          Specifies a new path to where the financial records are stored (default /home/<LOGIN>/.local/share/ttybudget).
       --currency CURRENCY_CHARACTER
          Specifies a new character to denote currency (default '$').
-      --date-format DATE_FORMAT
-         Specifies the default date format (initial default is "iso"). Accepts "iso" or "us" as arguments.
+      --date-in <iso,us>
+         Specifies the numerical date format which ttyformat should expect (long and long-abbr are always accepted). ISO is the default.
+      --date-out <iso,us,long,long-abbr>
+         Specifies the date format for outputs. The default is long-abbr.
       --use-file RECORDS_FILE
          Specifies a records file to read from and write to for the current invocation only, as opposed to the one contained in the default directory (see --base-dir)_.
+     It should be noted that if other operations follow these configuration commands, ttybudget will use the defaults which it has already been initialized to. 

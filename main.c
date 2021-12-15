@@ -34,8 +34,7 @@ int main(int argc, char *argv[])
 	free(records);
 	records = get_records_array(infile, n_recs, &tot_cash);
 	fclose(infile);
-	//print_records(ARGS HERE); figure out how to toggle on/off with input
-	//conditionally enter edit mode
+
 	int *prints = search_records(records, n_recs, print_params);
 	if (*prints == -1)
 		fprintf(stderr, "Error: no records in date range %i, %i.\n", print_params.date1, print_params.date2);

@@ -27,9 +27,11 @@ OPTIONS
       --iso
       --us
       --long
+      --long-abbr
 
    CONFIG OPTIONS
       --base-dir BASE_DIRECTORY
       --currency CURRENCY_CHARACTER
-      --date-format DATE_FORMAT
+      --date-in <iso,us>
+      --date-out <iso,us,long,long-abbr> 
       --use-file RECORDS_FILE

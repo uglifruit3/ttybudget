@@ -9,6 +9,7 @@
 #define MAX_TAG_LEN 32
 #define MAX_MSG_LEN 256
 
+// TODO having a limit of 8 tags if kind of a pussy thing to do... see if possible to have infinite while tampering with codebase as little as possible
 /* structure for handling records data */
 struct record_t {
 	float amount;
@@ -66,7 +67,6 @@ int *search_recs_tags(char tags[8][32], struct record_t *records, int bound1, in
 int *search_records(struct record_t *records, int n_recs, struct search_param_t params);
 
 void add_records(struct NewRecs_t *new_recs, struct record_t *records, int *n_recs, char *rec_filename, float tot_cash);
-void print_records(struct record_t *records, struct search_param_t params);
 
 void delete_record(struct record_t old_record, struct record_t *record_list);
 void modify_record(struct record_t old_record, struct record_t *record_list);

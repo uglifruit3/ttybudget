@@ -18,8 +18,8 @@ enum Commandline_Options {
 		SORT_S, SORT_L,
 	HELP_S, HELP_L,
 	VERSION_S, VERSION_L,
-	DATE_ISO, DATE_US, DATE_LONG,
-	BASE_DIR, CURRENCY, OUT_DATE, IN_DATE, USE_FILE
+	DATE_ISO, DATE_US, DATE_LONG, DATE_ABBR,
+	BASE_DIR, CURRENCY, IN_DATE, OUT_DATE, USE_FILE
 };
 
 /* linked list structure for accumulating new records to be added */
@@ -50,8 +50,8 @@ int get_tags(char *argv[], int *index, char tags[8][32]);
 int get_message(char *argv[], int *index, char message[256]);
 
 /* gets the date with the -d option with adding records or -i with lookup */
-int get_date_ISO(char *date_str, int *last_days, int *date);
-int get_date_US(char *date_str, int *last_days, int *date);
+int get_date_ISO(char *date_str, int *last_days, int *date, char *argv[], int *index);
+int get_date_US(char *date_str, int *last_days, int *date, char *argv[], int *index);
 int get_date_LONG(char *argv[], int *index, int *last_days, int *date);
 int get_date(char *argv[], int *index, int format, int *date, int accept_inf);
 
@@ -65,5 +65,8 @@ int get_print_commands(int argc, char *argv[], int *index, int date_frmt, struct
 
 /* parses a command line invocation, populating new records lists, search parameters, and opening the records file */
 int parse_command_line(char *argv[], int argc, char filename[], struct NewRecs_t **new_records, struct search_param_t *print_params);
+
+/* prints formatted output to the terminal and applies search parameters */
+void print_records(struct record_t *records, int n_recs, struct search_param_t params);
 
 #endif

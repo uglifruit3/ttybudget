@@ -315,7 +315,7 @@ int *search_recs_amount(float amnt1, float amnt2, struct record_t *records, int 
 	return match_indices;
 }
 
-int *search_recs_tags(char tags[8][32], struct record_t *records, int bound1, int bound2)
+int *search_recs_tags(char tags[8][MAX_TAG_LEN], struct record_t *records, int bound1, int bound2)
 {
 	/* if tags are unitialized, don't bother searching for tags */
 	if (tags[0][0] == '\0') {
@@ -328,7 +328,7 @@ int *search_recs_tags(char tags[8][32], struct record_t *records, int bound1, in
 
 	char **tags_cpy = malloc(8*sizeof(char*));
 	for (int i = 0; i < 8; i++) {
-		tags_cpy[i] = malloc(32*sizeof(char));
+		tags_cpy[i] = malloc(MAX_TAG_LEN*sizeof(char));
 		strcpy(tags_cpy[i], tags[i]);
 	}
 

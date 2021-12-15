@@ -14,8 +14,8 @@
 struct record_t {
 	float amount;
 	int date;
-	char message[256];
-	char tags[8][32];
+	char message[MAX_MSG_LEN];
+	char tags[8][MAX_TAG_LEN];
 };
 
 /* structure for specifying records during print/lookup operations */
@@ -24,7 +24,7 @@ struct search_param_t {
 	float amnt_bound2;
 	int date1;
 	int date2;
-	char tags[8][32];
+	char tags[8][MAX_TAG_LEN];
 	int sort_flag;
 };
 
@@ -63,7 +63,7 @@ int *search_recs_date(int date, struct record_t *records, int hi, int lo);
 int *search_recs_amount(float amnt1, float amnt2, struct record_t *records, int bound1, int bound2);
 /* returns the indices of all records that contain one of the specified tags within bound1 
  * and bound2; return behavior is same as amount search */
-int *search_recs_tags(char tags[8][32], struct record_t *records, int bound1, int bound2);
+int *search_recs_tags(char tags[8][MAX_TAG_LEN], struct record_t *records, int bound1, int bound2);
 int *search_records(struct record_t *records, int n_recs, struct search_param_t params);
 
 void add_records(struct NewRecs_t *new_recs, struct record_t *records, int *n_recs, char *rec_filename, float tot_cash);

@@ -183,7 +183,7 @@ int get_date_LONG(char *argv[], int *index, int *last_days, int *date)
 {
 	char yr[5], dy[3];
 	char str_mo[10];
-	if (!argv[*index+2] || (strlen(argv[*index]) != 2 || strlen(argv[*index+2]) != 4))
+	if (!argv[*index+2] || (strlen(argv[*index]) > 2 || strlen(argv[*index+2]) != 4))
 		return 3;
 
 	strncpy(dy, argv[*index], 3);
@@ -233,7 +233,7 @@ int get_date_ISO(char *date_str, int *last_days, int *date, char *argv[], int *i
 	}
 
 	if (strlen(date_str) != date_len) {
-		if (strlen(date_str) == 2) 
+		if (strlen(date_str) <= 2) 
 			return get_date_LONG(argv, index, last_days, date);
 		return 2;
 	} else if (date_len == 10) {
@@ -281,7 +281,7 @@ int get_date_US(char *date_str, int *last_days, int *date, char *argv[], int *in
 	}
 
 	if (strlen(date_str) != date_len) {
-		if (strlen(date_str) == 2) 
+		if (strlen(date_str) <= 2) 
 			return get_date_LONG(argv, index, last_days, date);
 		return 2;
 	} else if (date_len == 10) {

@@ -24,16 +24,23 @@ void add2front(struct NewRecs_t **list, struct NewRecs_t *new)
 	return;
 }
 
-void free_list(struct NewRecs_t *list) 
+void free_list(struct NewRecs_t *list, int del_mode) 
 {
+	if (list == NULL)
+		return;
 	struct NewRecs_t *to_free;
 	while (list != NULL) {
 		to_free = list;
 		list = list->next;
 
-		for (int i = 0; i < to_free->data.n_tags; i++)
-			free(to_free->data.tags[i]);
-		free(to_free->data.tags);
+		/* tags don't need to be freed here; they share an address with tags in 
+		 * the actual records array and are freed when those are freed in the 
+		 * free_recs_array function */
+		if (del_mode == TRUE && to_free->data.n_tags > 0) {
+			for (int i = 0; i < to_free->data.n_tags; i++)
+				free(to_free->data.tags[i]);
+			free(to_free->data.tags);
+		}
 		free(to_free);
 	}	
 }
@@ -137,13 +144,14 @@ int get_tags(char *argv[], int *index, char ***tags, int *n_tags)
 		i++;
 	}
 	char **tmptags = malloc(*n_tags * sizeof(char*));
+	for (i = 0; i < *n_tags; i++)
+		tmptags[i] = calloc(MAX_TAG_LEN, sizeof(char));
 	i = 0;
 
 	char temp[MAX_TAG_LEN];
 	memset(temp, '\0', MAX_TAG_LEN);
 	while (i < strlen(tag_list)) {
 		if (tag_list[i] == ',') {
-			tmptags[j] = calloc(MAX_TAG_LEN, sizeof(char));
 			strncpy(tmptags[j], temp, MAX_TAG_LEN);
 			j++; i++;
 			k = 0;
@@ -154,16 +162,19 @@ int get_tags(char *argv[], int *index, char ***tags, int *n_tags)
 				!(tag_list[i] >= '0' && tag_list[i] <= '9') &&
 				tag_list[i] != '-' && tag_list[i] != '_') {
 			fprintf(stderr, "Error: invalid characters in tag argument.\n");
+			free_array(tmptags, *n_tags);
+			*n_tags = 0;
 			return TRUE;
 		} else if (k == MAX_TAG_LEN) {
 			fprintf(stderr, "Error: tag name too long (max 32 chars).\n");
+			free_array(tmptags, *n_tags);
+			*n_tags = 0;
 			return TRUE;
 		}
 
 		temp[k] = tag_list[i];	
 		k++; i++;
 	}
-	tmptags[j] = calloc(MAX_TAG_LEN, sizeof(char));
 	strncpy(tmptags[j], temp, MAX_TAG_LEN);
 	*tags = tmptags;
 
@@ -488,9 +499,10 @@ int get_new_records(int argc, char *argv[], int *index, int date_frmt, struct Ne
 	}
 
 	if (error || !add_flag) {
+		free_list(record, TRUE);
+
 		if (!add_flag) {
 			fprintf(stderr, "Error: amount not given for add option.\n");
-			free(record);
 		}
 		return TRUE;
 	}

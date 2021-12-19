@@ -67,6 +67,8 @@ void initialize_record(struct record_t *record)
 
 void free_recs_array(struct record_t *records, int n_recs)
 {
+	if (records == NULL) 
+		return;
 	for (int i = 0; i < n_recs; i++) {
 		if (records[i].n_tags == 0)
 			continue;
@@ -77,6 +79,7 @@ void free_recs_array(struct record_t *records, int n_recs)
 	}
 
 	free(records);
+	return;
 }
 
 void init_search_params(struct search_param_t *params)
@@ -493,10 +496,10 @@ int *search_records(struct record_t *records, int n_recs, struct search_param_t 
 	return match_inds;
 }
 
-void add_records(struct NewRecs_t *new_recs, struct record_t *records, int *n_recs, char *rec_filename, float tot_cash)
+struct record_t *add_records(struct NewRecs_t *new_recs, struct record_t *records, int *n_recs, char *rec_filename, float tot_cash)
 {	
 	if (new_recs == NULL)
-		return;
+		return records;
 
 	FILE *rec_file = fopen(rec_filename, "w");
 
@@ -528,8 +531,9 @@ void add_records(struct NewRecs_t *new_recs, struct record_t *records, int *n_re
 
 	if (tmp != all_recs)
 		free(tmp);
-	free(all_recs);
+	free(records);
+	*n_recs += n_newrecs;
 
 	fclose(rec_file);	
-	return;
+	return all_recs;
 }

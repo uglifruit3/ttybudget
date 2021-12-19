@@ -30,10 +30,18 @@ struct NewRecs_t {
 
 /* linked list helpers */
 void add2front(struct NewRecs_t **list, struct NewRecs_t *new);
-void free_list(struct NewRecs_t *list);
+/* frees a linked list of new nodes. OF NOTE: del_mode specifies whether the 
+ * dynamically allocated tags will be free'd or not. This is necessary because
+ * the tag addresses are shared with the tags of the same new records when 
+ * added to the record array. Under normal operation, freeing that records
+ * array handles freeing the shared tags. But in an error state, it is 
+ * sometimes necessary for this function to free tags */
+void free_list(struct NewRecs_t *list, int del_mode);
 
 /* commandline parse helpers */
+/* general purpose checker for whether string is in list */
 int string_in_list(char *string, char *list[], int num_list_items);
+/* returns an enumerator associated with the command line option, or -1 for none */
 int is_cmdline_option(char *str1);
 
 /* opens records file for reading and writing; creates and populates if nonexistent */

@@ -9,31 +9,43 @@
 int main(int argc, char *argv[])
 {
 	char infile_name[256];
-	FILE *infile;
+	FILE *infile = NULL;
+
 	struct NewRecs_t *new_records = NULL;
+
+	struct record_t *records = NULL;
+	int n_recs = 0;
+
 	struct search_param_t print_params;
 	init_search_params(&print_params);
 
 	int err = parse_command_line(argv, argc, infile_name, &new_records, &print_params);
-	if (err == TRUE)
-		return 1;
-	else if (err == 2)
-		return 0;
+	if (err) {
+		free_recs_array(records, n_recs);
+		free_list(new_records, TRUE);
+		free_search_params(print_params);
+
+		if (err == 2)
+			return 0;
+		else
+			return 1;
+	}
 
 	float tot_cash = 0;
 
 	infile = open_records_file(infile_name);
-	int n_recs = get_num_records(infile);
-	struct record_t *records = get_records_array(infile, n_recs, &tot_cash);
-	fclose(infile);
-
-	add_records(new_records, records, &n_recs, infile_name, tot_cash);
-	
-	infile = open_records_file(infile_name);
 	n_recs = get_num_records(infile);
-	free_recs_array(records, n_recs);
 	records = get_records_array(infile, n_recs, &tot_cash);
 	fclose(infile);
+
+	// TODO consider adding records to the gotten array, and then writing at program conclusion so as to save trouble opening then closing repeatedly, calling get_records_array and freeing array multiple times, etc */
+	records = add_records(new_records, records, &n_recs, infile_name, tot_cash);
+	
+	//infile = open_records_file(infile_name);
+	//n_recs = get_num_records(infile);
+	//free_recs_array(records, n_recs);
+	//records = get_records_array(infile, n_recs, &tot_cash);
+	//fclose(infile);
 
 	int *prints = search_records(records, n_recs, print_params);
 	if (*prints == -1)
@@ -70,9 +82,9 @@ int main(int argc, char *argv[])
 		putchar('\n');
 	}
 
-	free_list(new_records);
 	free(prints);
 	free_recs_array(records, n_recs);
+	free_list(new_records, FALSE);
 	free_search_params(print_params);
 	return 0;
 }

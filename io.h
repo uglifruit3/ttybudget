@@ -74,7 +74,17 @@ int get_print_commands(int argc, char *argv[], int *index, int date_frmt, struct
 /* parses a command line invocation, populating new records lists, search parameters, and opening the records file */
 int parse_command_line(char *argv[], int argc, char filename[], struct NewRecs_t **new_records, struct search_param_t *print_params);
 
+/* formats and prints a record structure to the record file */
+void print_rec_to_file(FILE *outfile, struct record_t record);
+/* writes a records array to an output file */
+void write_to_file(struct record_t *records, int n_recs, float start_amnt, char *rec_filename);
+
+
+void print_date_ISO(struct record_t record);
+void print_date_US(struct record_t record);
+void print_date_LONG(struct record_t record, int abbreviated);
+void print_table_footer(struct record_t *records, int *matches, float start_amnt);
 /* prints formatted output to the terminal and applies search parameters */
-void print_records(struct record_t *records, int n_recs, struct search_param_t params);
+void print_records(struct record_t *records, int n_recs, float start_amnt, struct search_param_t params, int date_frmt);
 
 #endif

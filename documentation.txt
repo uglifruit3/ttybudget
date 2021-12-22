@@ -42,7 +42,8 @@ OPTIONS
       --long
          Specifies long date format, separated by spaces (DD Month YYYY). When inputting dates, this format is always accepted in addition to either ISO or US.
       --long-abbr 
-         Specifies the same format as --long, except the month is abbreviated to three letters. When inputting dates, this format is always accepted in addition to either ISO or US.
+         Specifies the same format as --long, except the month is abbreviated to three letters. When inputting dates, this format is always accepted in addition to either ISO or US. 
+     Note that these flags will only change the input date format. To change the output date format 
 
    CONFIG OPTIONS
       --base-dir BASE_DIRECTORY
@@ -54,5 +55,5 @@ OPTIONS
       --date-out <iso,us,long,long-abbr>
          Specifies the date format for outputs. The default is long-abbr.
       --use-file RECORDS_FILE
-         Specifies a records file to read from and write to for the current invocation only, as opposed to the one contained in the default directory (see --base-dir)_.
+         Specifies a records file to read from and write to for the current invocation only, as opposed to the one contained in the default directory (see --base-dir).
      It should be noted that if other operations follow these configuration commands, ttybudget will use the defaults which it has already been initialized to. 

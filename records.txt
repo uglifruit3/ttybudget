@@ -1,4 +1,6 @@
 80.50
+-0.05 19410528 "bought a coca cola" dollar
+-0.05 19410528 "bought a coca cola" dollar
 42.00 20210716 "message" 
 20.00 20210718 "" tag1,tag2,tag3
 16.00 20210718 "" tag1
@@ -22,5 +24,5 @@
 -80.00 20211203 "" 
 -44.00 20211219 "hoorah" t3,t5,t6
 -55.00 20211219 "this is another test" t1,t2,t3
--32.00 20211219 "this should fail" t1,,t2
--32.00 20211219 "this should fail" t1,,t2
+8000.00 20211221 "found some cash" 
+-321.00 20211221 "bought an airline ticket" credit_card,travel

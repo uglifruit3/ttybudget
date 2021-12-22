@@ -65,12 +65,12 @@ void initialize_record(struct record_t *record)
 	return;
 }
 
-void free_recs_array(struct record_t *records, int n_recs)
+void free_recs_array(struct record_t *records, int n_recs, int del_tags)
 {
 	if (records == NULL) 
 		return;
 	for (int i = 0; i < n_recs; i++) {
-		if (records[i].n_tags == 0)
+		if (del_tags == FALSE || records[i].n_tags == 0)
 			continue;
 
 		for (int j = 0; j < records[i].n_tags; j++)
@@ -84,10 +84,13 @@ void free_recs_array(struct record_t *records, int n_recs)
 
 void init_search_params(struct search_param_t *params)
 {
+	params->print_flag = FALSE;
+	params->sort_flag = FALSE;
+
 	params->amnt_bound1 = NAN;
 	params->amnt_bound2 = NAN;
+
 	params->date1 = params->date2 = 0;
-	params->sort_flag = 0;
 
 	params->n_tags = 0;
 
@@ -102,19 +105,6 @@ void free_search_params(struct search_param_t search_param)
 	for (int i = 0; i < search_param.n_tags; i++)
 		free(search_param.tags[i]);
 	free(search_param.tags);
-}
-
-void print_rec_to_file(FILE *outfile, struct record_t record)
-{
-	fprintf(outfile, "%.2f %i \"%s\" ", record.amount, record.date, record.message);
-	if (record.n_tags != 0) {
-		fprintf(outfile, "%s", record.tags[0]);
-		for (int i = 1; i < record.n_tags; i++)
-			fprintf(outfile, ",%s", record.tags[i]);
-	}
-	fputc('\n', outfile);
-
-	return;
 }
 
 unsigned int get_num_records(FILE *infile)
@@ -182,7 +172,7 @@ char **get_elements(char line[600])
 }
 
 			
-struct record_t *get_records_array(FILE *infile, int num_records, float *total)
+struct record_t *get_records_array(FILE *infile, int num_records, float *start_amnt)
 {
 	/* stored record format:
 	 * AMOUNT | DATE | MESSAGE | TAGS 
@@ -190,7 +180,7 @@ struct record_t *get_records_array(FILE *infile, int num_records, float *total)
 
 	char line[600];
 	fgets(line, 600, infile);
-	*total = atof(line);
+	*start_amnt = atof(line);
 
 	if (num_records == 0)
 		return NULL;
@@ -236,7 +226,7 @@ void sort_recs_amounts(struct record_t *list, struct record_t *tmp, int n, int r
 		while (i_left < i + sub_width && i_right < i + 2*sub_width) {
 			if (i_left >= n || i_right >= n) {
 				break;
-			} else if (i_right >= n || (list[i_left].amount <= list[i_right].amount)) {
+			} else if (i_right >= n || (list[i_left].amount >= list[i_right].amount)) {
 				tmp[j] = list[i_left];
 				i_left++;
 			} else {
@@ -392,14 +382,6 @@ int *search_records(struct record_t *records, int n_recs, struct search_param_t 
 	int lo = 0; /* lower bound of array to search in */
 	int hi = n_recs-1; /* upper bound of array to search in */
 
-	/* search priority: date -> amounts -> tags */
-	/* table of error return values:
-	 *   -1: no records within date range returned
-	 *   -2: singular date parameter returns no results
-	 *   -3: amount parameter returns no results
-	 *   -4: tags parameter returns no results
-	 *   -5: amount and tags parameters return no results */
-
 	/* gets lo and hi bounds of specified date range, if applicable */
 	/* if a singular date is being searched */
 	if (params.date1 == 0 && params.date2 != 0) {
@@ -496,14 +478,10 @@ int *search_records(struct record_t *records, int n_recs, struct search_param_t 
 	return match_inds;
 }
 
-struct record_t *add_records(struct NewRecs_t *new_recs, struct record_t *records, int *n_recs, char *rec_filename, float tot_cash)
+struct record_t *add_records(struct NewRecs_t *new_recs, struct record_t *records, int *n_recs)
 {	
 	if (new_recs == NULL)
 		return records;
-
-	FILE *rec_file = fopen(rec_filename, "w");
-
-	fprintf(rec_file, "%.2f\n", tot_cash);
 
 	int n_newrecs = 0;
 	struct NewRecs_t *tmp_new = new_recs;
@@ -526,14 +504,10 @@ struct record_t *add_records(struct NewRecs_t *new_recs, struct record_t *record
 
 	sort_recs_date(all_recs, tmp, *n_recs+n_newrecs, 0);
 
-	for (int j = 0; j < *n_recs+n_newrecs; j++)
-		print_rec_to_file(rec_file, all_recs[j]);
-
 	if (tmp != all_recs)
 		free(tmp);
 	free(records);
 	*n_recs += n_newrecs;
 
-	fclose(rec_file);	
 	return all_recs;
 }

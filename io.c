@@ -70,16 +70,16 @@ int is_cmdline_option(char *str1)
 			"-i", "--interval",
 			"-r", "--range",
 			"-s", "--sort",
+			"-n", "--no-footer",
 		"-h", "--help",
 		"-v", "--version",
-		"--iso", "--us", "--long", "--long-abbr",   /* 24-27 date formats */
+		"--date-in-iso", "--date-in-us",
+		"--date-out-iso", "--date-out-us", "--date-out-long", "--date-out-abbr",
 		"--base-dir",                               /* 28-32 config options */
 		"--currency",
-		"--date-in",
-		"--date-out",
 		"--use-file"
 	};
-	const int num_opts = 33;
+	const int num_opts = 35;
 
 	int opt = string_in_list(str1, (char **)cmdline_opts, num_opts);
 			
@@ -91,7 +91,7 @@ FILE *open_records_file(char file_name[256])
 	FILE *records_file = fopen(file_name, "r");
 
 	/* initializes records file to a starting amount of money */
-	if (!records_file) {
+	if (!records_file && errno == ENOENT) {
 		float amount;
 		char line[256];
 		char *end;
@@ -110,6 +110,9 @@ FILE *open_records_file(char file_name[256])
 		fprintf(records_file, "%.2f\n", amount);
 		fclose(records_file);
 		records_file = fopen(file_name, "r");
+	} else if (errno) {
+		fprintf(stderr, "Error opening records file \"%s\"--exiting.\n", file_name);
+		return NULL;
 	}
 
 	return records_file;
@@ -370,13 +373,10 @@ int get_date(char *argv[], int *index, int format, int *date, int accept_inf)
 	int max_days[] = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
 
 	int error = FALSE;
-	if (format == DATE_ISO) 
+	if (format == IN_DATE_ISO) 
 		error = get_date_ISO(argv[*index], max_days, date, argv, index);
-	else if (format == DATE_US)
+	else if (format == IN_DATE_US)
 		error = get_date_US(argv[*index], max_days, date, argv, index);
-	/* this option exists for redundancy's sake, if for some reason the date format is set to long or long-abbr */
-	else if (format == DATE_LONG || format == DATE_ABBR)
-		error = get_date_LONG(argv, index, max_days, date);
 
 	/* table of return values for get_date functions:
 	 * 0/FALSE: no error
@@ -578,6 +578,10 @@ int get_print_commands(int argc, char *argv[], int *index, int date_frmt, struct
 			/* sorting the records will be handled in the print function */
 			params->sort_flag = TRUE;
 			break;
+		case NOFOOTER_S:
+		case NOFOOTER_L:
+			params->show_footer = FALSE;
+			break;
 		case -1:
 			*index -= 1; /* decrement by 1 because of increment at function caller */
 			return FALSE;
@@ -599,11 +603,11 @@ int get_print_commands(int argc, char *argv[], int *index, int date_frmt, struct
 	return error;
 }
 
-int parse_command_line(char *argv[], int argc, char filename[], struct NewRecs_t **new_records, struct search_param_t *print_params)
+int parse_command_line(char *argv[], int argc, char filename[], struct NewRecs_t **new_records, struct search_param_t *print_params, struct defaults_t *defaults)
 {
-	strcpy(filename, "records.txt");
+	//strcpy(filename, "./records.txt");
+	strcpy(filename, defaults->recs_file);
 
-	int in_date_frmt = DATE_ISO;
 	int error = FALSE;
 
 	if (argc == 1) {
@@ -625,39 +629,53 @@ int parse_command_line(char *argv[], int argc, char filename[], struct NewRecs_t
 			break;
 		case ADD_S: 
 		case ADD_L:
-			error = get_new_records(argc, argv, &i, in_date_frmt, new_records);
+			error = get_new_records(argc, argv, &i, defaults->in_date_frmt, new_records);
 			break;
 		case PRINT_S: 
 		case PRINT_L:
 			print_params->print_flag = TRUE;
-			error = get_print_commands(argc, argv, &i, in_date_frmt, print_params);
+			error = get_print_commands(argc, argv, &i, defaults->in_date_frmt, print_params);
 			break;
-		// TODO: consider ditching these flags in exchange for using those under CONFIG OPTIONS to alter date formats
-		case DATE_ISO: 
-		case DATE_US: 
-		case DATE_LONG:
-		case DATE_ABBR:
-			in_date_frmt = is_cmdline_option(argv[i]);
+		case IN_DATE_ISO:
+		case IN_DATE_US:
+			defaults->in_date_frmt = is_cmdline_option(argv[i]);
+			defaults->change_flag = TRUE;
 			break;
-		// TODO: create a config file with syntax, write functions to read/write defaults to it, and use those defaults in the program
+		case OUT_DATE_ISO:
+		case OUT_DATE_US:
+		case OUT_DATE_LONG:
+		case OUT_DATE_ABBR:
+			defaults->out_date_frmt = is_cmdline_option(argv[i]);
+			defaults->change_flag = TRUE;
+			break;
 		case BASE_DIR: 
+			strncpy(filename, argv[++i], 256);
+			strncpy(defaults->recs_file, filename, 256);
+			defaults->change_flag = TRUE;
+			break;
 		case CURRENCY: 
-		case OUT_DATE: 
-		case IN_DATE: 
-			printf("Changing config\n");
+			if (strlen(argv[++i]) != 1) {
+				fprintf(stderr, "Error: argument for option \"%s\" must be a single character.\n", argv[i-1]);
+				error = TRUE;
+			} else {
+				defaults->currency_char = argv[i][0];
+				defaults->change_flag = TRUE;
+			}
 			break;
 		case USE_FILE:
-			if ( is_cmdline_option(argv[i+1]) >= ADD_S) 
-				printf("Error: no argument given for \"%s\".\n", argv[i]);
-			else
+			if ( is_cmdline_option(argv[i+1]) >= ADD_S) {
+				fprintf(stderr, "Error: no argument given for \"%s\".\n", argv[i]);
+				error = TRUE;
+			} else {
 				strncpy(filename, argv[++i], 256);
+			}
 			break;
 		case -1:
-			printf("Error: invalid option \"%s\".\n", argv[i]);
+			fprintf(stderr, "Error: invalid option \"%s\".\n", argv[i]);
 			error = TRUE;
 			break;
 		default:
-			printf("Error: sub-option \"%s\" lacks parent.\n", argv[i]);
+			fprintf(stderr, "Error: sub-option \"%s\" lacks parent.\n", argv[i]);
 			error = TRUE;
 			break;
 		}
@@ -695,7 +713,7 @@ void write_to_file(struct record_t *records, int n_recs, float start_amnt, char 
 	return;
 }
 
-void print_table_footer(struct record_t *records, int *matches, float start_amnt)
+void print_table_footer(struct record_t *records, int *matches, float start_amnt, char cur_char)
 {
 	/* get funds at start of period */
 	for (int i = 0; i < matches[1]; i++) 
@@ -714,9 +732,9 @@ void print_table_footer(struct record_t *records, int *matches, float start_amnt
 	/* display output */
 	char signs[] = {'-', '+'};
 	printf("=========================================================================\n");
-	printf(" Funds at start of period: %c$%-10.2f | Change in funds:     %c$%-10.2f\n", signs[start_amnt >= 0], fabs(start_amnt), signs[delta >= 0], fabs(delta));
-	printf(" Funds at end of period:   %c$%-10.2f |\n", signs[end_amnt >= 0], fabs(end_amnt));
-	printf(" Selected records total:   %c$%-10.2f | Cash flow in period: %s\n\n", signs[recs_tot >= 0], fabs(recs_tot), (delta >= 0 ? "POSITIVE":"NEGATIVE"));
+	printf(" Funds at start of period: %c%c%-10.2f | Change in funds:     %c%c%-10.2f\n", signs[start_amnt >= 0], cur_char, fabs(start_amnt), signs[delta >= 0], cur_char, fabs(delta));
+	printf(" Funds at end of period:   %c%c%-10.2f |\n", signs[end_amnt >= 0], cur_char, fabs(end_amnt));
+	printf(" Selected records total:   %c%c%-10.2f | Cash flow in period: %s\n\n", signs[recs_tot >= 0], cur_char, fabs(recs_tot), (delta >= 0 ? "POSITIVE":"NEGATIVE"));
 
 	return;
 }
@@ -737,28 +755,33 @@ void print_date_US(struct record_t record)
 	printf(" %02i-%02i-%i ", mo, dy, yr);
 	return;
 }
-void print_date_LONG(struct record_t record, int abbreviated)
+void print_date_LONG(struct record_t record)
 {
 	int yr = record.date/10000;
 	int mo = (record.date - yr*10000)/100;
 	int dy = record.date - yr*10000 - mo*100;
 
-	if (abbreviated) {
-		char *s_mos[] = {"Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"};
-		printf(" %02i %s %i ", dy, s_mos[mo-1], yr);
-	} else {
-		char *l_mos[]  = {"January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"};
-		printf(" %02i %-9s %i ", dy, l_mos[mo-1], yr);
-	}
+	char *l_mos[]  = {"January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"};
+	printf(" %02i %-9s %i ", dy, l_mos[mo-1], yr);
+	return;
+}
+void print_date_ABBR(struct record_t record)
+{
+	int yr = record.date/10000;
+	int mo = (record.date - yr*10000)/100;
+	int dy = record.date - yr*10000 - mo*100;
 
+	char *s_mos[] = {"Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"};
+	printf(" %02i %s %i ", dy, s_mos[mo-1], yr);
 	return;
 }
 
-void print_records(struct record_t *records, int n_recs, float start_amnt, struct search_param_t params, int date_frmt)
+void print_records(struct record_t *records, int n_recs, float start_amnt, struct search_param_t params, struct defaults_t defs)
 {
 
 	int *prints = search_records(records, n_recs, params);
 
+	/* display output and exit if the search returns no results */
 	switch (*prints) {
 	case -1:
 		fprintf(stderr, "No records in date range %i, %i found.\n", params.date1, params.date2);
@@ -796,33 +819,46 @@ void print_records(struct record_t *records, int n_recs, float start_amnt, struc
 			free_recs_array(tmp, n_recs, FALSE);
 	}
 
-	// TODO figure out function pointers, assign a print date function that is used for each individual line
-	//if (date_frmt == DATE_ISO)
-	//	print_date_ISO(records, prints);
-	//else if (date_frmt == DATE_US)
-	//	print_date_US(records, prints);
-	//else if (date_frmt == DATE_LONG)  
-	//	print_date_LONG(records, prints, FALSE);
-	//else if (date_frmt == DATE_ABBR)
-	//	print_date_LONG(records, prints, TRUE);
+	/* decide which date format to employ */
+	void (*print_date)(struct record_t);
+	switch (defs.out_date_frmt) {
+	case OUT_DATE_ISO:
+		print_date = &print_date_ISO;	
+		break;
+	case OUT_DATE_US:
+		print_date = &print_date_US;	
+		break;
+	case OUT_DATE_LONG:
+		print_date = &print_date_LONG;	
+		break;
+	case OUT_DATE_ABBR:
+		print_date = &print_date_ABBR;	
+		break;
+	}
 	
+	/* display output */
 	char signs[] = {'-', '+'};
 	for (int i = 0; i < prints[0]; i++) {
-		// TODO once function pointers are worked out, this function should be changed to the generic function pointer assigned above
-		print_date_LONG(to_print[i], TRUE);
-		printf("  %c$%-10.2f ", signs[to_print[i].amount >= 0], fabs(to_print[i].amount));
+		/* print the date */
+		(*print_date)(to_print[i]);
+		/* print amounts */
+		printf("  %c%c%-10.2f ", signs[to_print[i].amount >= 0], defs.currency_char, fabs(to_print[i].amount));
+		/* print message */
 		if (to_print[i].message[0] != '\0')
 			printf("\"%s\" ", to_print[i].message);
+		/* prints tags */
 		if (to_print[i].n_tags > 0) {
 			printf("[%s", to_print[i].tags[0]);
 			for (int j = 1; j < to_print[i].n_tags; j++)
 				printf(",%s", to_print[i].tags[j]);
 			putchar(']');
 		}
+
 		putchar('\n');
 	}
 		
-        print_table_footer(records, prints, start_amnt);
+	if (params.show_footer)
+		print_table_footer(records, prints, start_amnt, defs.currency_char);
 
 	free_recs_array(to_print, prints[0], FALSE);
 	free(prints);

@@ -21,6 +21,7 @@ struct record_t {
 /* structure for specifying records during print/lookup operations */
 struct search_param_t {
 	int print_flag;
+	int show_footer;
 	int sort_flag;
 	float amnt_bound1;
 	float amnt_bound2;
@@ -28,6 +29,14 @@ struct search_param_t {
 	int date2;
 	int n_tags;
 	char **tags;
+};
+
+struct defaults_t {
+	int out_date_frmt;
+	int in_date_frmt;
+	char recs_file[256];
+	char currency_char;
+	int change_flag;
 };
 
 #include "io.h"
@@ -54,6 +63,16 @@ unsigned int get_num_elements(char line[600]);
 char **get_elements(char line[600]);
 /* gets an array of all records stored in file, using the record_t structure */
 struct record_t *get_records_array(FILE *infile, int num_records, float *start_amnt);
+
+/* functions for reading/writing defaults */
+/* opens the defaults file, given a mode adherent to fopen() */
+FILE *open_defaults_file(char *mode);
+/* returns a complete buffer of the defaults file */
+char *get_defs_buffer(FILE *defs_file);
+/* reads default values from file. Returns 0 if normal, 1 if error */
+int read_defaults(struct defaults_t *defs);
+/* writes defaults to file if they have been changed */
+void write_defaults(struct defaults_t defs);
 
 /* reorders a records array, sorted from hightest to lowest amounts */
 void sort_recs_amounts(struct record_t *list, struct record_t *tmp, int n, int runs);

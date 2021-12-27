@@ -3,6 +3,10 @@
 #include <stdlib.h>
 #include <float.h>
 #include <limits.h>
+#include <errno.h>
+#include <stdio.h>
+#include <unistd.h>
+#include <sys/types.h>
 
 #include "backend.h"
 #include "io.h"
@@ -86,6 +90,7 @@ void init_search_params(struct search_param_t *params)
 {
 	params->print_flag = FALSE;
 	params->sort_flag = FALSE;
+	params->show_footer = TRUE;
 
 	params->amnt_bound1 = NAN;
 	params->amnt_bound2 = NAN;
@@ -196,7 +201,7 @@ struct record_t *get_records_array(FILE *infile, int num_records, float *start_a
 
 		initialize_record(&records[i]);
 		records[i].amount = atof(rec_elements[0]);
-		get_date(rec_elements, &index, DATE_ISO, &(records[i].date), TRUE);
+		get_date(rec_elements, &index, IN_DATE_ISO, &(records[i].date), TRUE);
 		get_message(rec_elements, &index, records[i].message);
 		if (rec_elements[3][0] != '\0')
 			get_tags(rec_elements, &index, &(records[i].tags), &(records[i].n_tags));
@@ -207,6 +212,257 @@ struct record_t *get_records_array(FILE *infile, int num_records, float *start_a
 	}
 	
 	return records;
+}
+
+FILE *open_defaults_file(char *mode)
+{
+	/* getting the filepath */
+	char defs_path[256];
+	memset(defs_path, '\0', 256);
+	//strncpy(defs_path, getenv("HOME"), 128);
+	//strcat(defs_path, "/.config/ttybudget/config");
+	strcpy(defs_path, "defaults");
+
+	FILE *defs_file = fopen(defs_path, mode);
+	/* if the file does not exist, initialize it */
+	if (!defs_file && errno == ENOENT) {
+		fprintf(stderr, "No defaults file founding. Initializing to \"%s.\"\n", defs_path);
+		defs_file = fopen(defs_path, "w");
+		fprintf(defs_file, "# this is the config file for ttybudget.\n# date-out=<iso,us,long,abbr>\ndate-out=abbr\n# date-in=<iso,us>\ndate-in=iso\n# the path of the default records file\ndefault-path=\"./records.txt\"\n# default currency character. a blank results in no currency character being outputted.\ncurrency-char=$\n");
+		fclose(defs_file);
+		defs_file = fopen(defs_path, "r");
+	/* otherwise, there is a problem opening the file */
+	} else if (errno || !defs_file) {
+		fprintf(stderr, "Error: could not open defaults file \"%s\"--exiting.\n", defs_path);
+		return NULL;
+	}
+
+	/* must be closed outside of this function */
+	return defs_file;
+}
+
+char *get_defs_buffer(FILE *defs_file)
+{
+	if (fseek(defs_file, 0L, SEEK_END) == 0) {
+		long file_size = ftell(defs_file);
+
+		char *buf = malloc((file_size+1) * sizeof(char));
+		rewind(defs_file);
+		size_t read_size = fread(buf, sizeof(char), file_size, defs_file);
+
+		if (ferror(defs_file) != 0) {
+			fprintf(stderr, "Error: could not read defaults file.\n");
+			free(buf);
+			return NULL;
+		}
+
+		buf[read_size] = '\0';
+		/* remember to free() outside here */
+		rewind(defs_file);
+		return buf;
+	} else {
+		fprintf(stderr, "Error: could not read defaults file.\n");
+		return NULL;
+	}
+}
+
+int read_defaults(struct defaults_t *defs)
+{
+	/* initialize defaults */
+	defs->in_date_frmt = defs->out_date_frmt = defs->currency_char = defs->change_flag = 0;
+	defs->recs_file[0] = '\0';
+
+	FILE *defs_file = open_defaults_file("r");
+	if (defs_file == NULL)
+		return 1;
+	char *buf = get_defs_buffer(defs_file);
+	fclose(defs_file);
+
+	char *def_opts[] = {"date-in", "date-out", "default-path", "currency-char"};
+	char *date_frmts[] = {"iso", "us", "long", "abbr"};
+	int i = 0;
+	char option[16];
+	char param[128];
+
+	/* parsing buffer */
+	while (buf[i] != '\0') {
+		if (buf[i] != '#') {
+			memset(option, '\0', 16);
+			memset(param, '\0', 128);
+			int ind = i;
+			/* get the option */
+			while (buf[i] != '=') {
+				if (i > ind+16) {
+					fprintf(stderr, "Error: bad syntax in defaults file.\n");
+					free(buf);
+					return 1;
+				} else {
+					option[i-ind] = buf[i];
+					i++;
+				}
+			}	
+			option[i] = '\0';
+			i++;
+			ind = i;
+			/* get the parameter corresponding to that option */
+			while (buf[i] != '\n' && buf[i] != '#') {
+				if (i > ind+128) {
+					fprintf(stderr, "Error: bad syntax in defaults file.\n");
+					free(buf);
+					return 1;
+				} else {
+					param[i-ind] = buf[i];
+					i++;
+				}
+			}
+
+			int tmp;
+			/* identify which option has been invoked and store its parameter in the defaults structure */
+			switch (string_in_list(option, def_opts, 4)) {
+			case 0: /* date-in */
+				tmp = string_in_list(param, date_frmts, 4);
+				if (tmp == 0 || tmp == 1) {
+					defs->in_date_frmt = tmp + IN_DATE_ISO;
+				} else {
+					fprintf(stderr, "Error: default date-in option \"%s\" not valid--exiting.\n", param);
+					free(buf);
+					return 1;
+				}
+				break;
+			case 1: /* date-out */
+				tmp = string_in_list(param, date_frmts, 4);
+				if (tmp != -1) {
+					defs->out_date_frmt = tmp + OUT_DATE_ISO;
+				} else {
+					fprintf(stderr, "Error: default date-out option \"%s\" not valid--exiting.\n", param);
+					free(buf);
+					return 1;
+				}
+				break;
+			case 2: /* default path */
+				tmp = 1;
+				if (param[i-ind-1] != '\"' || param[0] != '\"') {
+					fprintf(stderr, "Error: default records file path must be enclosed in quotes--exiting.\n");
+					free(buf);
+					return 1;
+				}
+				while (param[tmp] != '\"') {
+					param[tmp-1] = param[tmp];
+					tmp++;
+				}
+				param[tmp] = param[tmp-1] = '\0';
+
+				strncpy(defs->recs_file, param, 256);
+				break;
+			case 3: /* default currency character */
+				if (param[1] != '\n' && param[1] != '\0') {
+					fprintf(stderr, "Error: currency character incorrectly specified. Must be one character.\n");
+					free(buf);
+					return 1;
+				}
+				defs->currency_char = param[0];
+				break;
+			}
+		} 
+		/* advance to the next line */
+		while (buf[i] != '\n') 
+			i++;
+		i++;
+	}
+
+	free(buf);
+	/* check any of the defaults have not been defined */
+	if (defs->out_date_frmt == 0) {
+		fprintf(stderr, "Error: default out date not defined--exiting.\n");
+		return 1;
+	} else if (defs->in_date_frmt == 0) {
+		fprintf(stderr, "Error: default in date not defined--exiting.\n");
+		return 1;
+	} else if (defs->recs_file[0] == '\0') {
+		fprintf(stderr, "Error: default records file not defined--exiting.\n");
+		return 1;
+	} else if (defs->currency_char == 0) {
+		fprintf(stderr, "Error: default currency character not defined--exiting.\n");
+		return 1;
+	}
+
+	return 0;
+}
+					
+void write_defaults(struct defaults_t defs)
+{
+	FILE *defs_file = open_defaults_file("r+");
+	if (defs_file == NULL)
+		return;
+	char *buf = get_defs_buffer(defs_file);
+
+	ftruncate(fileno(defs_file), 0);
+
+	char option[16];
+	char *date_frmts[] = {"iso", "us", "long", "abbr"};
+	char *def_opts[] = {"date-in", "date-out", "default-path", "currency-char"};
+	int opt_inds[4];   /* order of option indices occurs in same order as in def_opts; indices indicate position of corresponding '=' */
+	int i = 0;
+	/* determine where in the file options are invoked */
+	while (buf[i] != '\0') {
+		if (buf[i] != '#') {
+			memset(option, '\0', 16);
+			int ind = i;
+			while (buf[i] != '=') {
+				option[i-ind] = buf[i];
+				i++;
+			}
+			i++;
+
+			switch (string_in_list(option, def_opts, 4)) {
+			case 0: /* date-in */
+				opt_inds[0] = i;	
+				break;
+			case 1: /* date-out */
+				opt_inds[1] = i;	
+				break;
+			case 2: /* default path */
+				opt_inds[2] = i;	
+				break;
+			case 3: /* default currency character */
+				opt_inds[3] = i;	
+				break;
+			}
+		} 
+		while (buf[i] != '\n') 
+			i++;
+		i++;
+	}
+	/* re-output to file, splicing new parameters where the old ones went */
+	i = 0;
+	while (buf[i] != '\0') {
+		if (i == opt_inds[0]) {
+			fputs(date_frmts[defs.in_date_frmt - IN_DATE_ISO], defs_file);
+			while (buf[i] != ' ' && buf[i] != '\n' && buf[i] != '#')
+				i++;
+		} else if (i == opt_inds[1]) {
+			fputs(date_frmts[defs.out_date_frmt - OUT_DATE_ISO], defs_file);
+			while (buf[i] != ' ' && buf[i] != '\n' && buf[i] != '#')
+				i++;
+		} else if (i == opt_inds[2]) {
+			fputc('\"', defs_file);
+			fputs(defs.recs_file, defs_file);
+			fputc('\"', defs_file);
+			while (buf[i] != ' ' && buf[i] != '\n' && buf[i] != '#')
+				i++;
+		} else if (i == opt_inds[3]) {
+			fputc(defs.currency_char, defs_file);
+			while (buf[i] != ' ' && buf[i] != '\n' && buf[i] != '#')
+				i++;
+		} else {
+			fputc(buf[i], defs_file);
+			i++;
+		}
+	}
+
+	fclose(defs_file);
+	free(buf);
+	return;
 }
 
 /* call with runs=0 initially */

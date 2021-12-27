@@ -16,10 +16,12 @@ enum Commandline_Options {
 		INTERVAL_S, INTERVAL_L,
 		RANGE_S, RANGE_L,
 		SORT_S, SORT_L,
+		NOFOOTER_S, NOFOOTER_L,
 	HELP_S, HELP_L,
 	VERSION_S, VERSION_L,
-	DATE_ISO, DATE_US, DATE_LONG, DATE_ABBR,
-	BASE_DIR, CURRENCY, IN_DATE, OUT_DATE, USE_FILE
+	IN_DATE_ISO, IN_DATE_US,
+	OUT_DATE_ISO, OUT_DATE_US, OUT_DATE_LONG, OUT_DATE_ABBR,
+	BASE_DIR, CURRENCY, USE_FILE
 };
 
 /* linked list structure for accumulating new records to be added */
@@ -39,7 +41,7 @@ void add2front(struct NewRecs_t **list, struct NewRecs_t *new);
 void free_list(struct NewRecs_t *list, int del_mode);
 
 /* commandline parse helpers */
-/* general purpose checker for whether string is in list */
+/* general purpose checker for whether string is in list. returns index of match or -1 if none */
 int string_in_list(char *string, char *list[], int num_list_items);
 /* returns an enumerator associated with the command line option, or -1 for none */
 int is_cmdline_option(char *str1);
@@ -72,7 +74,7 @@ int get_new_records(int argc, char *argv[], int *index, int date_frmt, struct Ne
 int get_print_commands(int argc, char *argv[], int *index, int date_frmt, struct search_param_t *params);
 
 /* parses a command line invocation, populating new records lists, search parameters, and opening the records file */
-int parse_command_line(char *argv[], int argc, char filename[], struct NewRecs_t **new_records, struct search_param_t *print_params);
+int parse_command_line(char *argv[], int argc, char filename[], struct NewRecs_t **new_records, struct search_param_t *print_params, struct defaults_t *defaults);
 
 /* formats and prints a record structure to the record file */
 void print_rec_to_file(FILE *outfile, struct record_t record);
@@ -82,9 +84,10 @@ void write_to_file(struct record_t *records, int n_recs, float start_amnt, char 
 
 void print_date_ISO(struct record_t record);
 void print_date_US(struct record_t record);
-void print_date_LONG(struct record_t record, int abbreviated);
-void print_table_footer(struct record_t *records, int *matches, float start_amnt);
+void print_date_LONG(struct record_t record);
+void print_date_ABBR(struct record_t record);
+void print_table_footer(struct record_t *records, int *matches, float start_amnt, char cur_char);
 /* prints formatted output to the terminal and applies search parameters */
-void print_records(struct record_t *records, int n_recs, float start_amnt, struct search_param_t params, int date_frmt);
+void print_records(struct record_t *records, int n_recs, float start_amnt, struct search_param_t params, struct defaults_t defs);
 
 #endif

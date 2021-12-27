@@ -1,6 +1,6 @@
 SYNOPSIS
-   ttybudget -a|--add AMOUNT [DATE_FORMAT] [ADD_OPTIONS] 
-   ttybudget -p|--print [DATE_FORMAT] [PRINT_OPTIONS] 
+   ttybudget -a|--add AMOUNT [ADD_OPTIONS] 
+   ttybudget -p|--print [PRINT_OPTIONS] 
    ttybudget -h|--help
    ttybudget -v|--version
    ttybudget CONFIG_OPTIONS [MAIN_OPTIONS]
@@ -22,16 +22,11 @@ OPTIONS
       -i BOUND1 [BOUND2], --interval BOUND1 [BOUND2]
       -r BOUND1 [BOUND2], --range BOUND1 [BOUND2]
       -s, --sort
-
-   DATE FORMAT OPTIONS
-      --iso
-      --us
-      --long
-      --long-abbr
+      -n, --no-footer
 
    CONFIG OPTIONS
       --base-dir BASE_DIRECTORY
       --currency CURRENCY_CHARACTER
-      --date-in <iso,us>
-      --date-out <iso,us,long,long-abbr> 
+      --date-in-<iso,us>
+      --date-out-<iso,us,long,abbr> 
       --use-file RECORDS_FILE

@@ -11,6 +11,11 @@ int main(int argc, char *argv[])
 	char infile_name[256];
 	FILE *infile = NULL;
 
+	struct defaults_t defaults;
+	int err = read_defaults(&defaults);
+	if (err) 
+		return 1;
+	
 	struct NewRecs_t *new_records = NULL;
 
 	struct record_t *records = NULL;
@@ -19,7 +24,7 @@ int main(int argc, char *argv[])
 	struct search_param_t print_params;
 	init_search_params(&print_params);
 
-	int err = parse_command_line(argv, argc, infile_name, &new_records, &print_params);
+	err = parse_command_line(argv, argc, infile_name, &new_records, &print_params, &defaults);
 	if (err) {
 		free_recs_array(records, n_recs, TRUE);
 		free_list(new_records, TRUE);
@@ -34,16 +39,23 @@ int main(int argc, char *argv[])
 	float tot_cash = 0;
 
 	infile = open_records_file(infile_name);
+	if (infile == NULL) {
+		free_recs_array(records, n_recs, TRUE);
+		free_list(new_records, TRUE);
+		free_search_params(print_params);
+		return 1;
+	}
 	n_recs = get_num_records(infile);
 	records = get_records_array(infile, n_recs, &tot_cash);
 	fclose(infile);
 
-	// TODO create a separate function for writing to the outfile, and call it here. 
 	records = add_records(new_records, records, &n_recs);
 	write_to_file(records, n_recs, tot_cash, infile_name);
 
 	if (print_params.print_flag)
-		print_records(records, n_recs, tot_cash, print_params, DATE_ISO);
+		print_records(records, n_recs, tot_cash, print_params, defaults);
+	if (defaults.change_flag)
+		write_defaults(defaults);
 
 	free_recs_array(records, n_recs, TRUE);
 	free_list(new_records, FALSE);

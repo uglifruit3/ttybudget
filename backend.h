@@ -97,7 +97,6 @@ int *search_recs_tags(char **tags, int n_tags, struct record_t *records, int bou
 	 *   -5: amount and tags parameters return no results */
 int *search_records(struct record_t *records, int n_recs, struct search_param_t params);
 
-//void add_records(struct NewRecs_t *new_recs, struct record_t *records, int *n_recs, char *rec_filename, float tot_cash);
 struct record_t *add_records(struct NewRecs_t *new_recs, struct record_t *records, int *n_recs);
 
 void delete_record(struct record_t old_record, struct record_t *record_list);

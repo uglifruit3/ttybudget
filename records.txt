@@ -26,3 +26,4 @@
 -55.00 20211219 "this is another test" t1,t2,t3
 8000.00 20211221 "found some cash" 
 -321.00 20211221 "bought an airline ticket" credit_card,travel
+100.00 20211227 "we did it" 

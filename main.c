@@ -54,8 +54,6 @@ int main(int argc, char *argv[])
 
 	if (print_params.print_flag)
 		print_records(records, n_recs, tot_cash, print_params, defaults);
-	if (defaults.change_flag)
-		write_defaults(defaults);
 
 	free_recs_array(records, n_recs, TRUE);
 	free_list(new_records, FALSE);

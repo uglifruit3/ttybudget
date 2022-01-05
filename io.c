@@ -92,26 +92,34 @@ FILE *open_records_file(char file_name[256])
 
 	/* initializes records file to a starting amount of money */
 	if (!records_file && errno == ENOENT) {
+		errno = 0;
 		float amount;
 		char line[256];
 		char *end;
 
 		records_file = fopen(file_name, "w");
-		printf("The records file has not been initialized.\nEnter a starting amount of money: ");
+		if (records_file && !errno) {
+			printf("Records file \"%s\" has not been initialized.\nEnter a starting amount of money: ", file_name);
 
-		errno = 0;
-		while (1) {
-			fgets(line, sizeof line, stdin);
-			amount = strtof(line, &end);
-			if (!errno && *end == '\n') break;
-			printf("Amount incorrectly specified. Re-enter: ");
+			errno = 0;
+			while (1) {
+				fgets(line, sizeof line, stdin);
+				amount = strtof(line, &end);
+				if (!errno && *end == '\n') break;
+				printf("Amount incorrectly specified. Re-enter: ");
+			}
+
+			fprintf(records_file, "%.2f\n", amount);
+			fclose(records_file);
+			records_file = fopen(file_name, "r");
 		}
-
-		fprintf(records_file, "%.2f\n", amount);
-		fclose(records_file);
-		records_file = fopen(file_name, "r");
-	} else if (errno) {
+	} 
+	if (!records_file || errno != 0) {
+		errno = 0;
 		fprintf(stderr, "Error opening records file \"%s\"--exiting.\n", file_name);
+		return NULL;
+	} else if (dir_exists(file_name)) {
+		fprintf(stderr, "Error: path \"%s\" to records file is a directory--exiting.\n", file_name);
 		return NULL;
 	}
 
@@ -605,7 +613,6 @@ int get_print_commands(int argc, char *argv[], int *index, int date_frmt, struct
 
 int parse_command_line(char *argv[], int argc, char filename[], struct NewRecs_t **new_records, struct search_param_t *print_params, struct defaults_t *defaults)
 {
-	//strcpy(filename, "./records.txt");
 	strcpy(filename, defaults->recs_file);
 
 	int error = FALSE;

@@ -65,6 +65,7 @@ char **get_elements(char line[600]);
 struct record_t *get_records_array(FILE *infile, int num_records, float *start_amnt);
 
 /* functions for reading/writing defaults */
+int dir_exists(char dir[]);
 /* opens the defaults file, given a mode adherent to fopen() */
 FILE *open_defaults_file(char *mode);
 /* returns a complete buffer of the defaults file */
@@ -72,6 +73,7 @@ char *get_defs_buffer(FILE *defs_file);
 /* reads default values from file. Returns 0 if normal, 1 if error */
 int read_defaults(struct defaults_t *defs);
 /* writes defaults to file if they have been changed */
+/* not used in current configuration; defaults file must be edited manually */
 void write_defaults(struct defaults_t defs);
 
 /* reorders a records array, sorted from hightest to lowest amounts */

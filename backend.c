@@ -7,9 +7,12 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <sys/types.h>
+#include <sys/stat.h>
 
 #include "backend.h"
 #include "io.h"
+
+#define DEFS_CONTENT "# this is the config file for ttybudget.\n# date-out=<iso,us,long,abbr>\ndate-out=abbr\n# date-in=<iso,us>\ndate-in=iso\n# the path of the default records file\ndefault-path=\"~/.local/share/ttybudget/records\"\n# default currency character. a blank results in no currency character being outputted.\ncurrency-char=$\n"
 
 void free_array(char **array, int n)
 {
@@ -214,26 +217,44 @@ struct record_t *get_records_array(FILE *infile, int num_records, float *start_a
 	return records;
 }
 
+int dir_exists(char dir[])
+{
+	struct stat dirstat;
+	if (stat(dir, &dirstat) == 0 && S_ISDIR(dirstat.st_mode) != 0)
+		return TRUE;
+	else
+		return FALSE;
+}
+
 FILE *open_defaults_file(char *mode)
 {
 	/* getting the filepath */
 	char defs_path[256];
 	memset(defs_path, '\0', 256);
-	//strncpy(defs_path, getenv("HOME"), 128);
-	//strcat(defs_path, "/.config/ttybudget/config");
-	strcpy(defs_path, "defaults");
+	strncpy(defs_path, getenv("HOME"), 128);
+	strcat(defs_path, "/.config");
+	if (!dir_exists(defs_path)) 
+		mkdir(defs_path, S_IRWXU|S_IRGRP|S_IXGRP|S_IXOTH);
+	strcat(defs_path, "/ttybudget");
+	if (!dir_exists(defs_path)) 
+		mkdir(defs_path, S_IRWXU|S_IRGRP|S_IXGRP|S_IXOTH);
+	strcat(defs_path, "/defaults.conf");
+	errno = 0;
 
 	FILE *defs_file = fopen(defs_path, mode);
 	/* if the file does not exist, initialize it */
 	if (!defs_file && errno == ENOENT) {
-		fprintf(stderr, "No defaults file founding. Initializing to \"%s.\"\n", defs_path);
+		errno = 0;
+		fprintf(stderr, "No config file found. Initializing to \"%s.\"\n", defs_path);
 		defs_file = fopen(defs_path, "w");
-		fprintf(defs_file, "# this is the config file for ttybudget.\n# date-out=<iso,us,long,abbr>\ndate-out=abbr\n# date-in=<iso,us>\ndate-in=iso\n# the path of the default records file\ndefault-path=\"./records.txt\"\n# default currency character. a blank results in no currency character being outputted.\ncurrency-char=$\n");
+		fprintf(defs_file, DEFS_CONTENT);
 		fclose(defs_file);
 		defs_file = fopen(defs_path, "r");
+		errno = 0;
 	/* otherwise, there is a problem opening the file */
 	} else if (errno || !defs_file) {
-		fprintf(stderr, "Error: could not open defaults file \"%s\"--exiting.\n", defs_path);
+		errno = 0;
+		fprintf(stderr, "Error: could not open config file \"%s\"--exiting.\n", defs_path);
 		return NULL;
 	}
 
@@ -251,7 +272,7 @@ char *get_defs_buffer(FILE *defs_file)
 		size_t read_size = fread(buf, sizeof(char), file_size, defs_file);
 
 		if (ferror(defs_file) != 0) {
-			fprintf(stderr, "Error: could not read defaults file.\n");
+			fprintf(stderr, "Error: could not read config file.\n");
 			free(buf);
 			return NULL;
 		}
@@ -261,7 +282,7 @@ char *get_defs_buffer(FILE *defs_file)
 		rewind(defs_file);
 		return buf;
 	} else {
-		fprintf(stderr, "Error: could not read defaults file.\n");
+		fprintf(stderr, "Error: could not read config file.\n");
 		return NULL;
 	}
 }
@@ -270,7 +291,7 @@ int read_defaults(struct defaults_t *defs)
 {
 	/* initialize defaults */
 	defs->in_date_frmt = defs->out_date_frmt = defs->currency_char = defs->change_flag = 0;
-	defs->recs_file[0] = '\0';
+	memset(defs->recs_file, '\0', 256);
 
 	FILE *defs_file = open_defaults_file("r");
 	if (defs_file == NULL)
@@ -293,7 +314,7 @@ int read_defaults(struct defaults_t *defs)
 			/* get the option */
 			while (buf[i] != '=') {
 				if (i > ind+16) {
-					fprintf(stderr, "Error: bad syntax in defaults file.\n");
+					fprintf(stderr, "Error: bad syntax in config file.\n");
 					free(buf);
 					return 1;
 				} else {
@@ -301,13 +322,13 @@ int read_defaults(struct defaults_t *defs)
 					i++;
 				}
 			}	
-			option[i] = '\0';
+			option[i-ind] = '\0';
 			i++;
 			ind = i;
 			/* get the parameter corresponding to that option */
 			while (buf[i] != '\n' && buf[i] != '#') {
 				if (i > ind+128) {
-					fprintf(stderr, "Error: bad syntax in defaults file.\n");
+					fprintf(stderr, "Error: bad syntax in config file.\n");
 					free(buf);
 					return 1;
 				} else {
@@ -386,6 +407,28 @@ int read_defaults(struct defaults_t *defs)
 		return 1;
 	}
 
+	/* need to expand the ~ macro if in the specified path */
+	char *tilde_ptr = strchr(defs->recs_file, '~');
+	if (tilde_ptr != NULL) {
+		int len = strlen(defs->recs_file);
+		char *tmpstr = malloc(len*sizeof(char));
+		memset(tmpstr, '\0', len);
+		/* copy everything after ~ into tmpstr */
+		char *ptr = tilde_ptr + 1;
+		int i = 0;
+		while (*ptr != '\0') {
+			tmpstr[i] = *ptr;
+			ptr++;
+			i++;
+		}
+		/* clear defs->recs_file and put in home directory path */
+		memset(defs->recs_file, '\0', 256);
+		strncpy(defs->recs_file, getenv("HOME"), 256);
+		/* append path following ~ */
+		strncat(defs->recs_file, tmpstr, len);
+
+		free(tmpstr);
+	}
 	return 0;
 }
 					

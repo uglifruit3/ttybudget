@@ -18,11 +18,18 @@ struct record_t {
 	char **tags;
 };
 
+/* structure for generic merge sort */
+struct sort_t {
+	float val;
+	int index;
+};
+
 /* structure for specifying records during print/lookup operations */
 struct search_param_t {
 	int print_flag;
 	int show_footer;
 	int sort_flag;
+	int reverse_flag;
 	float amnt_bound1;
 	float amnt_bound2;
 	int date1;
@@ -31,6 +38,7 @@ struct search_param_t {
 	char **tags;
 };
 
+/* structure for storing operating behavior of ttybudget */
 struct defaults_t {
 	int out_date_frmt;
 	int in_date_frmt;
@@ -43,7 +51,7 @@ struct defaults_t {
 
 /* frees an array wherein each element is allocated manually */
 void free_array(char **array, int n);
-void arr_cpy(struct record_t *arr1, struct record_t *arr2, int n);
+void arr_cpy(struct record_t *dest, struct record_t *src, int n);
 int *binary_search(int term, int *list, int hi, int lo);
 
 /* initializes a record for population */

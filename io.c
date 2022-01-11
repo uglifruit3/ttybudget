@@ -11,6 +11,10 @@
 #include "backend.h"
 #include "io.h"
 
+#define VER_INFO "ttybudget v1.0a - 10 Jan 2022"
+
+#define HELP_MSG "Usage: ttybudget [MAIN OPTIONS ...] RECORDS OPERATIONS ...\n \n Main options:\n   -h, --help                Display this message and exit\n   -v, --version             Display version info and exit\n   --date-in-<iso,us>        Explicitly set the date input format\n   --date-out-<iso,us,long,abbr>\n                             Explicitly set the date input format\n   -c CURR_CHAR, --currency-char \n                             Explicitly define the character prepended to currency \n                               amounts\n   -u RECS_FILE, --use-file  Use the records file given by the path RECS_FILE\n\n Records operations:\n   -a AMOUNT [ADD OPTIONS ...], --add\n                             Add a record to the ledger stored in the records file\n   -p [PRINT OPTIONS ...], --print\n                             Print the records stored in the ledger\n\n Add options:\n   -t TAGS, --tags           Assign tags to the added record\n   -m \"MESSAGE\", --messsage  Assign a message to the added record\n   -d DATE, --date           Assign a date to the added record\n\n Print options:\n   -i DATE1 [DATE2], --interval\n                             Search for records matching DATE1, or occuring inclusively \n                               between DATE1 and DATE2\n   -f VALUE1 [VALUE2], --find-range\n                             Search for records matching VALUE1, or occuring inclusively \n                               between VALUE1 and VALUE2\n   -q TAGS, --query-tags     Search for records with tags matching those specified\n   -s, --sort                Sort displayed records in greatest-to-least currency amount\n   -r, --reverse             Reverse the order in which records are displayed\n   -n, --no-footer           Omit the footer \n   -l, --list-tags           Display a list of all tags associated with displayed records\n\nMandatory or optional arguments for short options are also mandatory or optional for any\n  corresponding long options.\n\nReport any bugs to mszembruski@tutanota.com.\n"
+
 void add2front(struct NewRecs_t **list, struct NewRecs_t *new) 
 {
 	if (*list == NULL) {
@@ -59,27 +63,28 @@ int string_in_list(char *string, char **list, int num_list_items)
 
 int is_cmdline_option(char *str1)
 {
+	/* this static array must match, element for element, the options listed in the Commandline_Options 
+	 * enumerator in io.h */
 	const char *cmdline_opts[] = {
 		"-a", "--add",                              /* 0-1 add */
 			"-t", "--tags",                     /* 2-7 add options */
 			"-m", "--message",
 			"-d", "--date",
 		"-p", "--print",                            /* 8-9 print */
-		"-e", "--edit",                             /* 10-11 edit */
-			"-q", "--query-tags",               /* 12-17 print options */
+			"-q", "--query-tags",               /* 10-19 print options */
 			"-i", "--interval",
-			"-r", "--range",
+			"-f", "--find-range",
 			"-s", "--sort",
+			"-r", "--reverse",
 			"-n", "--no-footer",
-		"-h", "--help",
+		"-h", "--help",                             /* 22-25 help and version info */
 		"-v", "--version",
-		"--date-in-iso", "--date-in-us",
+		"--date-in-iso", "--date-in-us",            /* 26-31 date formats */
 		"--date-out-iso", "--date-out-us", "--date-out-long", "--date-out-abbr",
-		"--base-dir",                               /* 28-32 config options */
-		"--currency",
-		"--use-file"
+		"-c", "--currency",                         /* 32-33 currency config */
+		"-u", "--use-file"                          /* 34-35 use file config */
 	};
-	const int num_opts = 35;
+	const int num_opts = 36;
 
 	int opt = string_in_list(str1, (char **)cmdline_opts, num_opts);
 			
@@ -88,6 +93,12 @@ int is_cmdline_option(char *str1)
 
 FILE *open_records_file(char file_name[256])
 {
+	/* checks if the file name has been specified */
+	if (file_name[0] == '\0') {
+		fprintf(stderr, "Error: a records file has not been specified--exiting.\n");
+		return NULL;
+	}
+
 	FILE *records_file = fopen(file_name, "r");
 
 	/* initializes records file to a starting amount of money */
@@ -479,6 +490,14 @@ int get_new_records(int argc, char *argv[], int *index, int date_frmt, struct Ne
 			error = get_date(argv, index, date_frmt, &(record->data.date), FALSE);
 			break;
 		case -1:
+			/* check if amount has already been defined */
+			if (!isnan(record->data.amount)) {
+				*index -= 2;
+				/* add flag is set to escape the loop and process input */
+				add_flag = TRUE;
+				break;
+			}
+			/* get the amount */
 			error = get_amount(argv, index, &(record->data.amount), TRUE, FALSE);
 			if (error) 
 				return TRUE;
@@ -546,8 +565,8 @@ int get_print_commands(int argc, char *argv[], int *index, int date_frmt, struct
 			}
 
 			break;
-		case RANGE_S:
-		case RANGE_L:
+		case FIND_RANGE_S:
+		case FIND_RANGE_L:
 			*index += 1;
 			if (!isnan(params->amnt_bound2)) {
 				error = TRUE;
@@ -585,6 +604,10 @@ int get_print_commands(int argc, char *argv[], int *index, int date_frmt, struct
 
 			/* sorting the records will be handled in the print function */
 			params->sort_flag = TRUE;
+			break;
+		case REVERSE_S:
+		case REVERSE_L:
+			params->reverse_flag = TRUE;
 			break;
 		case NOFOOTER_S:
 		case NOFOOTER_L:
@@ -626,12 +649,12 @@ int parse_command_line(char *argv[], int argc, char filename[], struct NewRecs_t
 		switch (is_cmdline_option(argv[i])) {
 		case HELP_S:
 		case HELP_L:
-			printf("Usage:\n  ttybudget -a|--add [DATE_FORMAT] amount [ADD_OPTIONS]\n  ttybudget -p|--print [DATE_FORMAT] [PRINT_OPTIONS]\n  ttybudget -e|--edit [DATE_FORMAT] [PRINT_OPTIONS]\n  ttybudget -h|--help\n  ttybudget -v|--version\n  ttybudget CONFIG_OPTIONS [MAIN_OPTIONS]\n");
+			printf(HELP_MSG);
 			error = 2; 
 			break;
 		case VERSION_S:
 		case VERSION_L:
-			printf("ttybudget v1.0 - 01 Dec 21\n");
+			printf(VER_INFO "\n");
 			error = 2;
 			break;
 		case ADD_S: 
@@ -655,13 +678,13 @@ int parse_command_line(char *argv[], int argc, char filename[], struct NewRecs_t
 			defaults->out_date_frmt = is_cmdline_option(argv[i]);
 			defaults->change_flag = TRUE;
 			break;
-		case BASE_DIR: 
-			strncpy(filename, argv[++i], 256);
-			strncpy(defaults->recs_file, filename, 256);
-			defaults->change_flag = TRUE;
-			break;
-		case CURRENCY: 
-			if (strlen(argv[++i]) != 1) {
+		case CURRENCY_S: 
+		case CURRENCY_L: 
+			i++;
+			if (!strcmp(argv[i], "\0")) {
+				defaults->currency_char = 0;
+				defaults->change_flag = TRUE;
+			} else if (strlen(argv[i]) != 1) {
 				fprintf(stderr, "Error: argument for option \"%s\" must be a single character.\n", argv[i-1]);
 				error = TRUE;
 			} else {
@@ -669,7 +692,8 @@ int parse_command_line(char *argv[], int argc, char filename[], struct NewRecs_t
 				defaults->change_flag = TRUE;
 			}
 			break;
-		case USE_FILE:
+		case USE_FILE_S:
+		case USE_FILE_L:
 			if ( is_cmdline_option(argv[i+1]) >= ADD_S) {
 				fprintf(stderr, "Error: no argument given for \"%s\".\n", argv[i]);
 				error = TRUE;
@@ -677,10 +701,12 @@ int parse_command_line(char *argv[], int argc, char filename[], struct NewRecs_t
 				strncpy(filename, argv[++i], 256);
 			}
 			break;
+		/* the argument is not a command line argument */
 		case -1:
 			fprintf(stderr, "Error: invalid option \"%s\".\n", argv[i]);
 			error = TRUE;
 			break;
+		/* the argument is not a main option (e.g. it lacks a parent) */
 		default:
 			fprintf(stderr, "Error: sub-option \"%s\" lacks parent.\n", argv[i]);
 			error = TRUE;
@@ -720,32 +746,6 @@ void write_to_file(struct record_t *records, int n_recs, float start_amnt, char 
 	return;
 }
 
-void print_table_footer(struct record_t *records, int *matches, float start_amnt, char cur_char)
-{
-	/* get funds at start of period */
-	for (int i = 0; i < matches[1]; i++) 
-		start_amnt += records[i].amount;	
-	/* get funds at end of period */
-	float end_amnt = start_amnt;
-	for (int i = matches[1]; i <= matches[matches[0]]; i++) 
-		end_amnt += records[i].amount;
-	/* get selected records total */
-	float recs_tot = 0;
-	for (int i = matches[1]; i <= matches[matches[0]]; i++)
-		recs_tot += records[i].amount;
-	/* change in funds */
-	float delta = end_amnt - start_amnt;
-
-	/* display output */
-	char signs[] = {'-', '+'};
-	printf("=========================================================================\n");
-	printf(" Funds at start of period: %c%c%-10.2f | Change in funds:     %c%c%-10.2f\n", signs[start_amnt >= 0], cur_char, fabs(start_amnt), signs[delta >= 0], cur_char, fabs(delta));
-	printf(" Funds at end of period:   %c%c%-10.2f |\n", signs[end_amnt >= 0], cur_char, fabs(end_amnt));
-	printf(" Selected records total:   %c%c%-10.2f | Cash flow in period: %s\n\n", signs[recs_tot >= 0], cur_char, fabs(recs_tot), (delta >= 0 ? "POSITIVE":"NEGATIVE"));
-
-	return;
-}
-
 void print_date_ISO(struct record_t record)
 {
 	int yr = record.date/10000;
@@ -780,6 +780,43 @@ void print_date_ABBR(struct record_t record)
 
 	char *s_mos[] = {"Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"};
 	printf(" %02i %s %i ", dy, s_mos[mo-1], yr);
+	return;
+}
+
+void print_amnt_no_cc(char sign, char curr_char, float amnt)
+{
+	printf("  %c%-10.2f ", sign, fabs(amnt));
+	return;
+}
+void print_amnt_cc(char sign, char curr_char, float amnt)
+{
+	printf(" %c%c%-10.2f ", sign, curr_char, fabs(amnt));
+	return;
+}
+
+void print_table_footer(struct record_t *records, int *matches, float start_amnt, char cur_char)
+{
+	/* get funds at start of period */
+	for (int i = 0; i < matches[1]; i++) 
+		start_amnt += records[i].amount;	
+	/* get funds at end of period */
+	float end_amnt = start_amnt;
+	for (int i = matches[1]; i <= matches[matches[0]]; i++) 
+		end_amnt += records[i].amount;
+	/* get selected records total */
+	float recs_tot = 0;
+	for (int i = matches[1]; i <= matches[matches[0]]; i++)
+		recs_tot += records[i].amount;
+	/* change in funds */
+	float delta = end_amnt - start_amnt;
+
+	/* display output */
+	char signs[] = {'-', '+'};
+	printf("=========================================================================\n");
+	printf(" Funds at start of period: %c%c%-10.2f | Change in funds:     %c%c%-10.2f\n", signs[start_amnt >= 0], cur_char, fabs(start_amnt), signs[delta >= 0], cur_char, fabs(delta));
+	printf(" Funds at end of period:   %c%c%-10.2f |\n", signs[end_amnt >= 0], cur_char, fabs(end_amnt));
+	printf(" Selected records total:   %c%c%-10.2f | Cash flow in period: %s\n\n", signs[recs_tot >= 0], cur_char, fabs(recs_tot), (delta >= 0 ? "POSITIVE":"NEGATIVE"));
+
 	return;
 }
 
@@ -842,14 +879,35 @@ void print_records(struct record_t *records, int n_recs, float start_amnt, struc
 		print_date = &print_date_ABBR;	
 		break;
 	}
+
+	/* decide whether to print with a currency character */
+	void (*print_amnt)(char sign, char curr_char, float amnt);
+	if (defs.currency_char == 0)
+		print_amnt = &print_amnt_no_cc;
+	else
+		print_amnt = &print_amnt_cc;
+
+	/* set the display order for records (regular or reversed) */
+	int start, end, inc;
+	if (params.reverse_flag == TRUE) {
+		start = prints[0]-1;
+		end = -1;
+		inc = -1;
+	} else {
+		start = 0;
+		end = prints[0];
+		inc = 1;
+	}
 	
 	/* display output */
 	char signs[] = {'-', '+'};
-	for (int i = 0; i < prints[0]; i++) {
+	int i = start;
+	/* index starts at start, moves by inc each iteration, until it is equal to end */
+	while (i != end) {
 		/* print the date */
 		(*print_date)(to_print[i]);
 		/* print amounts */
-		printf("  %c%c%-10.2f ", signs[to_print[i].amount >= 0], defs.currency_char, fabs(to_print[i].amount));
+		print_amnt(signs[to_print[i].amount >= 0], defs.currency_char, to_print[i].amount);
 		/* print message */
 		if (to_print[i].message[0] != '\0')
 			printf("\"%s\" ", to_print[i].message);
@@ -862,6 +920,8 @@ void print_records(struct record_t *records, int n_recs, float start_amnt, struc
 		}
 
 		putchar('\n');
+
+		i += inc;
 	}
 		
 	if (params.show_footer)

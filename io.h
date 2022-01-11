@@ -11,17 +11,18 @@ enum Commandline_Options {
 		MESSAGE_S, MESSAGE_L,
 		DATE_S, DATE_L,
 	PRINT_S, PRINT_L,
-	EDIT_S, EDIT_L,
 		QUERY_S, QUERY_L,
 		INTERVAL_S, INTERVAL_L,
-		RANGE_S, RANGE_L,
+		FIND_RANGE_S, FIND_RANGE_L,
 		SORT_S, SORT_L,
+		REVERSE_S, REVERSE_L,
 		NOFOOTER_S, NOFOOTER_L,
 	HELP_S, HELP_L,
 	VERSION_S, VERSION_L,
 	IN_DATE_ISO, IN_DATE_US,
 	OUT_DATE_ISO, OUT_DATE_US, OUT_DATE_LONG, OUT_DATE_ABBR,
-	BASE_DIR, CURRENCY, USE_FILE
+	CURRENCY_S, CURRENCY_L,
+       	USE_FILE_S, USE_FILE_L
 };
 
 /* linked list structure for accumulating new records to be added */
@@ -43,7 +44,8 @@ void free_list(struct NewRecs_t *list, int del_mode);
 /* commandline parse helpers */
 /* general purpose checker for whether string is in list. returns index of match or -1 if none */
 int string_in_list(char *string, char *list[], int num_list_items);
-/* returns an enumerator associated with the command line option, or -1 for none */
+/* returns a value associated with the command line option as denoted in the
+ * Commandline_Options enumerator, or -1 for none */
 int is_cmdline_option(char *str1);
 
 /* opens records file for reading and writing; creates and populates if nonexistent */
@@ -60,6 +62,7 @@ int get_tags(char *argv[], int *index, char ***tags, int *n_tags);
 int get_message(char *argv[], int *index, char message[256]);
 
 /* gets the date with the -d option with adding records or -i with lookup */
+/* all get_date* functions return FALSE if no errors, and TRUE if errors */
 int get_date_ISO(char *date_str, int *last_days, int *date, char *argv[], int *index);
 int get_date_US(char *date_str, int *last_days, int *date, char *argv[], int *index);
 int get_date_LONG(char *argv[], int *index, int *last_days, int *date);
@@ -86,7 +89,12 @@ void print_date_ISO(struct record_t record);
 void print_date_US(struct record_t record);
 void print_date_LONG(struct record_t record);
 void print_date_ABBR(struct record_t record);
+
+void print_amnt_no_cc(char sign, char curr_char, float amnt);
+void print_amnt_cc(char sign, char curr_char, float amnt);
+
 void print_table_footer(struct record_t *records, int *matches, float start_amnt, char cur_char);
+
 /* prints formatted output to the terminal and applies search parameters */
 void print_records(struct record_t *records, int n_recs, float start_amnt, struct search_param_t params, struct defaults_t defs);
 

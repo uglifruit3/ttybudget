@@ -12,8 +12,6 @@
 #include "backend.h"
 #include "io.h"
 
-#define DEFS_CONTENT "# this is the config file for ttybudget.\n# date-out=<iso,us,long,abbr>\ndate-out=abbr\n# date-in=<iso,us>\ndate-in=iso\n# the path of the default records file\ndefault-path=\"~/.local/share/ttybudget/records\"\n# default currency character. a blank results in no currency character being outputted.\ncurrency-char=$\n"
-
 void free_array(char **array, int n)
 {
 	for (int i = 0; i < n; i++) 
@@ -24,10 +22,17 @@ void free_array(char **array, int n)
 	return;
 }
 
-void arr_cpy(struct record_t *arr1, struct record_t *arr2, int n)
+void arr_cpy(struct record_t *dest, struct record_t *src, int n)
 {
 	for (int i = 0; i < n; i++)
-		arr1[i] = arr2[i];
+		dest[i] = src[i];
+
+	return;
+}
+void alt_arr_cpy(struct sort_t *dest, struct sort_t *src, int n)
+{
+	for (int i = 0; i < n; i++)
+		dest[i] = src[i];
 
 	return;
 }
@@ -91,9 +96,10 @@ void free_recs_array(struct record_t *records, int n_recs, int del_tags)
 
 void init_search_params(struct search_param_t *params)
 {
-	params->print_flag = FALSE;
-	params->sort_flag = FALSE;
-	params->show_footer = TRUE;
+	params->print_flag   = FALSE;
+	params->sort_flag    = FALSE;
+	params->show_footer  = TRUE;
+	params->reverse_flag = FALSE;
 
 	params->amnt_bound1 = NAN;
 	params->amnt_bound2 = NAN;
@@ -196,24 +202,41 @@ struct record_t *get_records_array(FILE *infile, int num_records, float *start_a
 	struct record_t *records = malloc(num_records*sizeof(struct record_t));
 
 	int i = 0;
+	int error = FALSE;
 	while (fgets(line, 600, infile) != NULL) {
 		line[strlen(line)-1] = '\0'; /* erases newline */
 		char **rec_elements = get_elements(line);
 
 		int index = 0;
 
+		/* checks for bad records file values as well */
 		initialize_record(&records[i]);
 		records[i].amount = atof(rec_elements[0]);
-		get_date(rec_elements, &index, IN_DATE_ISO, &(records[i].date), TRUE);
-		get_message(rec_elements, &index, records[i].message);
-		if (rec_elements[3][0] != '\0')
-			get_tags(rec_elements, &index, &(records[i].tags), &(records[i].n_tags));
+		if (get_date(rec_elements, &index, IN_DATE_ISO, &(records[i].date), TRUE) != FALSE) {
+			fprintf(stderr, "Warning: bad records file date value detected.\n");
+			error = TRUE;
+		}
+		if (get_message(rec_elements, &index, records[i].message) != FALSE) {
+			fprintf(stderr, "Warning: bad records file message value detected.\n");
+			error = TRUE;
+		}
+		if (rec_elements[3][0] != '\0') {
+			if (get_tags(rec_elements, &index, &(records[i].tags), &(records[i].n_tags)) != FALSE) {
+				fprintf(stderr, "Warning: bad records file tag value(s) detected.\n");
+				error = TRUE;
+			}
+		}
+
 
 		free_array(rec_elements, 4);
 
 		i++;
 	}
 	
+	if (error) {
+		free(records);
+		records = NULL;
+	}
 	return records;
 }
 
@@ -245,16 +268,12 @@ FILE *open_defaults_file(char *mode)
 	/* if the file does not exist, initialize it */
 	if (!defs_file && errno == ENOENT) {
 		errno = 0;
-		fprintf(stderr, "No config file found. Initializing to \"%s.\"\n", defs_path);
-		defs_file = fopen(defs_path, "w");
-		fprintf(defs_file, DEFS_CONTENT);
-		fclose(defs_file);
-		defs_file = fopen(defs_path, "r");
-		errno = 0;
+		fprintf(stderr, "Warning: no config file found (%s does not exist).\n", defs_path);
+		return NULL;
 	/* otherwise, there is a problem opening the file */
 	} else if (errno || !defs_file) {
 		errno = 0;
-		fprintf(stderr, "Error: could not open config file \"%s\"--exiting.\n", defs_path);
+		fprintf(stderr, "Warning: could not open config file \"%s\".\n", defs_path);
 		return NULL;
 	}
 
@@ -294,8 +313,17 @@ int read_defaults(struct defaults_t *defs)
 	memset(defs->recs_file, '\0', 256);
 
 	FILE *defs_file = open_defaults_file("r");
-	if (defs_file == NULL)
-		return 1;
+	if (defs_file == NULL) {
+		fprintf(stderr, "Warning: default out date format not defined--initializing to abbr format.\n");
+		fprintf(stderr, "Warning: default in date format not defined--initializing to iso format.\n");
+		fprintf(stderr, "Warning: default records file path not defined.\n");
+
+		defs->out_date_frmt = OUT_DATE_ABBR;
+		defs->in_date_frmt = IN_DATE_ISO;
+
+		return 0;
+	}
+
 	char *buf = get_defs_buffer(defs_file);
 	fclose(defs_file);
 
@@ -392,20 +420,19 @@ int read_defaults(struct defaults_t *defs)
 	}
 
 	free(buf);
-	/* check any of the defaults have not been defined */
+	/* check if any of the defaults have not been defined */
 	if (defs->out_date_frmt == 0) {
-		fprintf(stderr, "Error: default out date not defined--exiting.\n");
-		return 1;
-	} else if (defs->in_date_frmt == 0) {
-		fprintf(stderr, "Error: default in date not defined--exiting.\n");
-		return 1;
-	} else if (defs->recs_file[0] == '\0') {
-		fprintf(stderr, "Error: default records file not defined--exiting.\n");
-		return 1;
-	} else if (defs->currency_char == 0) {
-		fprintf(stderr, "Error: default currency character not defined--exiting.\n");
-		return 1;
+		fprintf(stderr, "Warning: default out date format not defined--initializing to abbr format.\n");
+		defs->out_date_frmt = OUT_DATE_ABBR;
 	}
+	if (defs->in_date_frmt == 0) {
+		fprintf(stderr, "Warning: default in date format not defined--initializing to iso format.\n");
+		defs->in_date_frmt = IN_DATE_ISO;
+	}
+	if (defs->recs_file[0] == '\0') {
+		fprintf(stderr, "Warning: default records file path not defined.\n");
+	}
+	/* need to perform check for definition of default records path after command line has been parsed for possible file specification */
 
 	/* need to expand the ~ macro if in the specified path */
 	char *tilde_ptr = strchr(defs->recs_file, '~');

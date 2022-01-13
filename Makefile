@@ -14,10 +14,12 @@ ttybudget: $(OBJS)
 	if [ ! -d /home/$(USR)/.local ]; then mkdir /home/$(USR)/.local; fi
 	if [ ! -d /home/$(USR)/.local/share ]; then mkdir /home/$(USR)/.local/share; fi
 	if [ ! -d /home/$(USR)/.local/share/ttybudget ]; then mkdir /home/$(USR)/.local/share/ttybudget; fi
+	chown $(USR) /home/$(USR)/.local/share/ttybudget/
 	# create the config file if nonexistent
 	if [ ! -d /home/$(USR)/.config ]; then mkdir /home/$(USR)/.config; fi
 	if [ ! -d /home/$(USR)/.config/ttybudget ]; then mkdir /home/$(USR)/.config/ttybudget; fi
 	if [ ! -f /home/$(USR)/.config/ttybudget/defaults.conf ]; then cp template.defaults.conf /home/$(USR)/.config/ttybudget/defaults.conf; fi
+	chown $(USR) /home/$(USR)/.config/ttybudget/defaults.conf
 	# get rid of loose object files
 	rm -f *.o
 

@@ -10,6 +10,7 @@ int main(int argc, char *argv[])
 {
 	//TODO implement a -l/--list-tags argument, which displays all tags assigned to displayed records
 	//TODO change program return values (0 normal; 1 user error; 2 system error)
+	//TODO investigate new records file not being initalized properly
 	struct defaults_t defaults;
 	int err = read_defaults(&defaults);
 	if (err) 

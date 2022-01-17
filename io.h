@@ -17,6 +17,7 @@ enum Commandline_Options {
 		SORT_S, SORT_L,
 		REVERSE_S, REVERSE_L,
 		NOFOOTER_S, NOFOOTER_L,
+		LIST_TAGS_S, LIST_TAGS_L,
 	HELP_S, HELP_L,
 	VERSION_S, VERSION_L,
 	IN_DATE_ISO, IN_DATE_US,
@@ -94,6 +95,7 @@ void print_amnt_no_cc(char sign, char curr_char, float amnt);
 void print_amnt_cc(char sign, char curr_char, float amnt);
 
 void print_table_footer(struct record_t *records, int *matches, float start_amnt, char cur_char);
+void print_tags(struct record_t *records, int n_recs);
 
 /* prints formatted output to the terminal and applies search parameters */
 void print_records(struct record_t *records, int n_recs, float start_amnt, struct search_param_t params, struct defaults_t defs);

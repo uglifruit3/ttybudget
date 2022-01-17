@@ -77,14 +77,15 @@ int is_cmdline_option(char *str1)
 			"-s", "--sort",
 			"-r", "--reverse",
 			"-n", "--no-footer",
-		"-h", "--help",                             /* 22-25 help and version info */
+			"-l", "--list-tags",
+		"-h", "--help",                             /* 23-27 help and version info */
 		"-v", "--version",
-		"--date-in-iso", "--date-in-us",            /* 26-31 date formats */
+		"--date-in-iso", "--date-in-us",            /* 28-33 date formats */
 		"--date-out-iso", "--date-out-us", "--date-out-long", "--date-out-abbr",
-		"-c", "--currency",                         /* 32-33 currency config */
-		"-u", "--use-file"                          /* 34-35 use file config */
+		"-c", "--currency",                         /* 34-35 currency config */
+		"-u", "--use-file"                          /* 36-37 use file config */
 	};
-	const int num_opts = 36;
+	const int num_opts = 38;
 
 	int opt = string_in_list(str1, (char **)cmdline_opts, num_opts);
 			
@@ -613,6 +614,10 @@ int get_print_commands(int argc, char *argv[], int *index, int date_frmt, struct
 		case NOFOOTER_L:
 			params->show_footer = FALSE;
 			break;
+		case LIST_TAGS_S:
+		case LIST_TAGS_L:
+			params->list_tags = TRUE;
+			break;
 		case -1:
 			*index -= 1; /* decrement by 1 because of increment at function caller */
 			return FALSE;
@@ -820,9 +825,56 @@ void print_table_footer(struct record_t *records, int *matches, float start_amnt
 	return;
 }
 
+void print_tags(struct record_t *records, int n_recs)
+{
+	int n_tags;
+	struct tagnode_t *tags = get_tag_list(records, n_recs, &n_tags);	
+	struct tagnode_t *tmp = malloc(n_tags * sizeof(struct tagnode_t));
+	sort_taglist(tags, tmp, n_tags, 0);
+	if (tmp != tags)
+		free(tmp);
+
+	printf("=========================================================================\n");
+	if (tags != NULL) {
+		printf(" Tags in displayed records:");
+		int fw = 73; /* field width is 73 characters */
+		/* cols counts the number of columns a printed line occupies */
+		int cols;
+		char tmp[64];
+		for (int i = 0; i < n_tags; i++) {
+			if (cols == 0)
+				putchar(' ');
+
+			memset(tmp, '\0', 64);
+			sprintf(tmp, " %s (%i)", tags[i].tag, tags[i].times);
+
+			cols += strlen(tmp);
+			if (cols <= fw - 1) {
+				printf("%s", tmp);
+			} else {
+				cols = 0;
+				i--;
+				putchar('\n');
+				continue;
+			}
+
+			if (i < n_tags - 1) {
+				putchar(',');
+				cols++;
+			} else {
+				putchar('\n');
+			}
+		}
+		free(tags);
+	} else {
+		printf(" No tags in displayed records.\n");
+	}
+
+	return;
+}
+
 void print_records(struct record_t *records, int n_recs, float start_amnt, struct search_param_t params, struct defaults_t defs)
 {
-
 	int *prints = search_records(records, n_recs, params);
 
 	/* display output and exit if the search returns no results */
@@ -924,6 +976,8 @@ void print_records(struct record_t *records, int n_recs, float start_amnt, struc
 		i += inc;
 	}
 		
+	if (params.list_tags)
+		print_tags(to_print, prints[0]);
 	if (params.show_footer)
 		print_table_footer(records, prints, start_amnt, defs.currency_char);
 

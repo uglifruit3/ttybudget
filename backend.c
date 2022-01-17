@@ -29,13 +29,6 @@ void arr_cpy(struct record_t *dest, struct record_t *src, int n)
 
 	return;
 }
-void alt_arr_cpy(struct sort_t *dest, struct sort_t *src, int n)
-{
-	for (int i = 0; i < n; i++)
-		dest[i] = src[i];
-
-	return;
-}
 
 int *binary_search(int term, int *list, int hi, int lo)
 {
@@ -100,6 +93,7 @@ void init_search_params(struct search_param_t *params)
 	params->sort_flag    = FALSE;
 	params->show_footer  = TRUE;
 	params->reverse_flag = FALSE;
+	params->list_tags    = FALSE;
 
 	params->amnt_bound1 = NAN;
 	params->amnt_bound2 = NAN;
@@ -614,6 +608,49 @@ void sort_recs_date(struct record_t *list, struct record_t *tmp, int n, int runs
 	sort_recs_date(tmp, list, n, ++runs);
 }
 
+void sort_taglist(struct tagnode_t *taglist, struct tagnode_t *tmp, int n, int runs)
+{
+	int sub_width = pow(2, runs);
+	if (sub_width > n) {
+		if (runs % 2 != 0) {
+			for (int i = 0; i < n; i++) {
+				strcpy(tmp[i].tag, taglist[i].tag);
+				tmp[i].times = taglist[i].times;
+			}
+		}	
+		return;
+	}
+
+	for (int i = 0; i < n; i = i + 2*sub_width) {
+		int i_left = i;
+		int i_right = i + sub_width;
+		int j = i;
+		while (i_left < i + sub_width && i_right < i + 2*sub_width) {
+			if (i_left >= n || i_right >= n) {
+				break;
+			} else if (i_right >= n || (taglist[i_left].times >= taglist[i_right].times)) {
+				tmp[j] = taglist[i_left];
+				i_left++;
+			} else {
+				tmp[j] = taglist[i_right];
+				i_right++;
+			}
+			j++;
+		}
+
+		if (i_left < i+sub_width) {
+			while (i_left < n && i_left < i + sub_width)
+				tmp[j++] = taglist[i_left++];
+		}
+		else if (i_right < i+2*sub_width) {
+			while (i_right < n && i_right < i + 2*sub_width)
+				tmp[j++] = taglist[i_right++];
+		}
+	}
+
+	sort_taglist(tmp, taglist, n, ++runs);
+}
+
 int *search_recs_date(int param, struct record_t *records, int hi, int lo)
 {
 	int num_dates = hi-lo+1;
@@ -697,6 +734,51 @@ int *search_recs_tags(char **tags, int n_tags, struct record_t *records, int bou
 	}
 
 	return match_indices;
+}
+
+int in_taglist(struct tagnode_t *taglist, char *tag, int n_tags)
+{
+	for (int i = 0; i < n_tags; i++) {
+		if (!strcmp(taglist[i].tag, tag))
+			return i;
+	}
+
+	return -1;
+}
+
+struct tagnode_t *get_tag_list(struct record_t *records, int n_recs, int *n_tags)
+{
+	*n_tags = 0;
+	/* get the number of tags globally ocurring */
+	for (int i = 0; i < n_recs; i++) 
+		*n_tags += records[i].n_tags;		
+	if (*n_tags == 0)
+		return NULL;
+
+	/* will need to resize at function conclusion */
+	struct tagnode_t *alltags = malloc(*n_tags * sizeof(struct tagnode_t));
+	for (int i = 0; i < *n_tags; i++)
+		memset(alltags[i].tag, '\0', 32);
+
+	int n_uniqtags = 0, k = 0;
+	for (int i = 0; i < n_recs; i++) {
+		for (int j = 0; j < records[i].n_tags; j++) {
+			int tmp = in_taglist(alltags, records[i].tags[j], n_uniqtags);
+			/* the tag has not been read until now */
+			if (tmp == -1) {
+				strcpy(alltags[k].tag, records[i].tags[j]);
+				alltags[k].times = 1;
+				k++;
+				n_uniqtags++;
+			/* the tag is already stored at alltags[tmp] */
+			} else {
+				alltags[tmp].times++;
+			}
+		}
+	}
+
+	*n_tags = n_uniqtags;
+	return alltags;	
 }
 
 int *search_records(struct record_t *records, int n_recs, struct search_param_t params)

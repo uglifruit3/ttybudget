@@ -92,6 +92,18 @@ int is_cmdline_option(char *str1)
 	return opt;
 }
 
+long get_filesize(FILE *fp)
+{
+	long file_size;
+	if (fseek(fp, 0L, SEEK_END) == 0)
+		file_size = ftell(fp);
+	else
+		file_size = -1;
+	
+	rewind(fp);
+	return file_size;
+}
+
 FILE *open_records_file(char file_name[256])
 {
 	/* checks if the file name has been specified */
@@ -103,7 +115,7 @@ FILE *open_records_file(char file_name[256])
 	FILE *records_file = fopen(file_name, "r");
 
 	/* initializes records file to a starting amount of money */
-	if (!records_file && errno == ENOENT) {
+	if ((!records_file && errno == ENOENT) || get_filesize(records_file) == 0) {
 		errno = 0;
 		float amount;
 		char line[256];
@@ -976,6 +988,7 @@ void print_records(struct record_t *records, int n_recs, float start_amnt, struc
 		i += inc;
 	}
 		
+	/* display footer and tag list if specified */
 	if (params.list_tags)
 		print_tags(to_print, prints[0]);
 	if (params.show_footer)

@@ -9,6 +9,10 @@
 #define MAX_TAG_LEN 32
 #define MAX_MSG_LEN 256
 
+/* enum for handling/returning different error types */
+/*                  0       1        2               */
+enum err_types { NO_ERR, USR_ERR, SYS_ERR };
+
 /* structure for handling records data */
 struct record_t {
 	float amount;

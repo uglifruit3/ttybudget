@@ -205,7 +205,12 @@ struct record_t *get_records_array(FILE *infile, int num_records, float *start_a
 
 		/* checks for bad records file values as well */
 		initialize_record(&records[i]);
-		records[i].amount = atof(rec_elements[0]);
+		//records[i].amount = atof(rec_elements[0]);
+		errno = 0;
+		records[i].amount = strtof(rec_elements[0], NULL);
+		if (errno != 0) {
+			fprintf(stderr, "Warning: bad records file initial amount value detected.\n");
+		}
 		if (get_date(rec_elements, &index, IN_DATE_ISO, &(records[i].date), TRUE) != FALSE) {
 			fprintf(stderr, "Warning: bad records file date value detected.\n");
 			error = TRUE;

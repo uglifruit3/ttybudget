@@ -11,8 +11,6 @@ int main(int argc, char *argv[])
 	//TODO change program return values (0 normal; 1 user error; 2 system error)
 	//TODO full refactor; replace TRUE/FALSE int values with bools using stdbool.h implementation
 	//     ^^^ to that end, consider refining types usage. longs for numbers of elements, shorts, unsigned, etc for stuff
-	//TODO make error messages if something is screwed up in the records file
-	//TODO if records file exists but is empty, attempt to populate it
 	struct defaults_t defaults;
 	int err = read_defaults(&defaults);
 	if (err) 

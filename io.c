@@ -28,7 +28,7 @@ void add2front(struct NewRecs_t **list, struct NewRecs_t *new)
 	return;
 }
 
-void free_list(struct NewRecs_t *list, int del_mode) 
+void free_list(struct NewRecs_t *list, bool del_mode) 
 {
 	if (list == NULL)
 		return;
@@ -40,7 +40,7 @@ void free_list(struct NewRecs_t *list, int del_mode)
 		/* tags don't need to be freed here; they share an address with tags in 
 		 * the actual records array and are freed when those are freed in the 
 		 * free_recs_array function */
-		if (del_mode == TRUE && to_free->data.n_tags > 0) {
+		if (del_mode == true && to_free->data.n_tags > 0) {
 			for (int i = 0; i < to_free->data.n_tags; i++)
 				free(to_free->data.tags[i]);
 			free(to_free->data.tags);
@@ -49,7 +49,7 @@ void free_list(struct NewRecs_t *list, int del_mode)
 	}	
 }
 
-int string_in_list(char *string, char **list, int num_list_items)
+signed int string_in_list(char *string, char **list, int num_list_items)
 {
 	if (!string || string[0] == '\0') return -1;
 
@@ -61,7 +61,7 @@ int string_in_list(char *string, char **list, int num_list_items)
 	return -1;
 }
 
-int is_cmdline_option(char *str1)
+signed int is_cmdline_option(char *str1)
 {
 	/* this static array must match, element for element, the options listed in the Commandline_Options 
 	 * enumerator in io.h */
@@ -87,7 +87,7 @@ int is_cmdline_option(char *str1)
 	};
 	const int num_opts = 38;
 
-	int opt = string_in_list(str1, (char **)cmdline_opts, num_opts);
+	signed int opt = string_in_list(str1, (char **)cmdline_opts, num_opts);
 			
 	return opt;
 }
@@ -104,11 +104,12 @@ long get_filesize(FILE *fp)
 	return file_size;
 }
 
-FILE *open_records_file(char file_name[256])
+FILE *open_records_file(char file_name[256], int *err)
 {
 	/* checks if the file name has been specified */
 	if (file_name[0] == '\0') {
 		fprintf(stderr, "Error: a records file has not been specified--exiting.\n");
+		*err = USR_ERR;
 		return NULL;
 	}
 
@@ -141,19 +142,18 @@ FILE *open_records_file(char file_name[256])
 	if (!records_file || errno != 0) {
 		errno = 0;
 		fprintf(stderr, "Error opening records file \"%s\"--exiting.\n", file_name);
+		*err = SYS_ERR;
 		return NULL;
-	} else if (dir_exists(file_name)) {
+	} else if (dir_exists(file_name, err)) {
+		if (*err == SYS_ERR)
+			return NULL;
+
 		fprintf(stderr, "Error: path \"%s\" to records file is a directory--exiting.\n", file_name);
+		*err = USR_ERR;
 		return NULL;
 	}
 
 	return records_file;
-}
-
-void chng_date_frmt(int *format_enum, int new_format)
-{
-	*format_enum = new_format;
-	return;
 }
 
 int get_tags(char *argv[], int *index, char ***tags, int *n_tags)
@@ -162,11 +162,11 @@ int get_tags(char *argv[], int *index, char ***tags, int *n_tags)
 
 	if (*n_tags != 0) {
 		fprintf(stderr, "Error: multiple definitions of tags.\n");
-		return TRUE;
+		return USR_ERR;
 	}
 	if (!argv[*index]) {
 		fprintf(stderr, "Error: no argument given for tags option.\n");
-		return TRUE;
+		return USR_ERR;
 	}
 
 	int i, j, k;
@@ -199,12 +199,12 @@ int get_tags(char *argv[], int *index, char ***tags, int *n_tags)
 			fprintf(stderr, "Error: invalid characters in tag argument.\n");
 			free_array(tmptags, *n_tags);
 			*n_tags = 0;
-			return TRUE;
+			return USR_ERR;
 		} else if (k == MAX_TAG_LEN) {
 			fprintf(stderr, "Error: tag name too long (max 32 chars).\n");
 			free_array(tmptags, *n_tags);
 			*n_tags = 0;
-			return TRUE;
+			return USR_ERR;
 		}
 
 		temp[k] = tag_list[i];	
@@ -213,7 +213,7 @@ int get_tags(char *argv[], int *index, char ***tags, int *n_tags)
 	strncpy(tmptags[j], temp, MAX_TAG_LEN);
 	*tags = tmptags;
 
-	return FALSE;
+	return NO_ERR;
 }
 
 int get_message(char *argv[], int *index, char message[256])
@@ -222,21 +222,21 @@ int get_message(char *argv[], int *index, char message[256])
 
 	if (!argv[*index]) {
 		fprintf(stderr, "Error: no argument given for message option.\n");
-		return TRUE;
+		return USR_ERR;
 	}
 
 	char *msg = argv[*index];
 	
 	if (strlen(msg) > MAX_MSG_LEN) {
 		fprintf(stderr, "Error: message length exceeds character limit (256).\n");
-		return TRUE;
+		return USR_ERR;
 	} else if (message[0] != '\0') {
 		fprintf(stderr, "Error: multiple definitions of message in new record.\n");
-		return TRUE;
+		return USR_ERR;
 	}
 
 	strncpy(message, msg, MAX_MSG_LEN);
-	return FALSE;
+	return NO_ERR;
 }
 
 int get_date_LONG(char *argv[], int *index, int *last_days, int *date)
@@ -254,11 +254,11 @@ int get_date_LONG(char *argv[], int *index, int *last_days, int *date)
 		str_mo[i] = tolower(str_mo[i]);
 	}
 
-	char *months_long[]  = {"january", "february", "march", "april", "may", "june", "july", "august", "september", "october", "november", "december"};
-	char *months_short[] = {"jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"};
-	int num_mo = string_in_list(str_mo, months_long, 12) + 1;
+	const char *months_long[]  = {"january", "february", "march", "april", "may", "june", "july", "august", "september", "october", "november", "december"};
+	const char *months_short[] = {"jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"};
+	int num_mo = string_in_list(str_mo, (char **) months_long, 12) + 1;
 	if (num_mo == 0) {
-		num_mo = string_in_list(str_mo, months_short, 12) + 1;
+		num_mo = string_in_list(str_mo, (char **) months_short, 12) + 1;
 		if (num_mo == 0) {
 			fprintf(stderr, "Error: month \"%s\" is not valid.\n", argv[*index+1]);
 			return 6;
@@ -277,7 +277,7 @@ int get_date_LONG(char *argv[], int *index, int *last_days, int *date)
 	*date += atoi(yr) * 10000;
 	*date += num_mo * 100;
 	*date += atoi(dy) * 1;
-	return FALSE;
+	return NO_ERR;
 }
 int get_date_ISO(char *date_str, int *last_days, int *date, char *argv[], int *index)
 {
@@ -325,7 +325,7 @@ int get_date_ISO(char *date_str, int *last_days, int *date, char *argv[], int *i
 	*date += atoi(yr) * 10000;
 	*date += atoi(mo) * 100;
 	*date += atoi(dy) * 1;
-	return FALSE;
+	return NO_ERR;
 }
 int get_date_US(char *date_str, int *last_days, int *date, char *argv[], int *index)
 {
@@ -373,19 +373,19 @@ int get_date_US(char *date_str, int *last_days, int *date, char *argv[], int *in
 	*date += atoi(yr) * 10000;
 	*date += atoi(mo) * 100;
 	*date += atoi(dy) * 1;
-	return FALSE;
+	return NO_ERR;
 }
-int get_date(char *argv[], int *index, int format, int *date, int accept_inf)
+int get_date(char *argv[], int *index, int format, int *date, bool accept_inf)
 {
 	*index += 1;
 
 	if (*date != 0) {
 		fprintf(stderr, "Error: multiple definitions of date.\n");
-		return TRUE;
+		return USR_ERR;
 	}
 	if (!argv[*index]) {
 		fprintf(stderr, "Error: no argument given for date option.\n");
-		return TRUE;
+		return USR_ERR;
 	}
 
 	float inf_arg = strtof(argv[*index], NULL);
@@ -395,52 +395,53 @@ int get_date(char *argv[], int *index, int format, int *date, int accept_inf)
 				*date = INT_MIN;
 			else
 				*date = INT_MAX;
-			return FALSE;
+			return NO_ERR;
 		} 
 		fprintf(stderr, "Error: passing infinity for a date is not permitted here.\n");
-		return TRUE;
+		return USR_ERR;
 	}
 
 	/* final day of each month, Jan to Dec */
-	int max_days[] = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
+	const int max_days[] = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
 
-	int error = FALSE;
+	/* needs to be an int, since get_date_* returns several different error codes */
+	int error;
 	if (format == IN_DATE_ISO) 
-		error = get_date_ISO(argv[*index], max_days, date, argv, index);
+		error = get_date_ISO(argv[*index], (int *) max_days, date, argv, index);
 	else if (format == IN_DATE_US)
-		error = get_date_US(argv[*index], max_days, date, argv, index);
+		error = get_date_US(argv[*index], (int *) max_days, date, argv, index);
 
 	/* table of return values for get_date functions:
-	 * 0/FALSE: no error
-	 * 1/TRUE:  bad delimeters
-	 * 2:       bad format
-	 * 3:       invalid date expression
-	 * 4:       invalid month value
-	 * 5:       invalid day value 
-	 * 6:       get_date_LONG returned an error (handles own output) */
+	 * 0/NO_ERR: no error
+	 * 1:        bad delimeters
+	 * 2:        bad format
+	 * 3:        invalid date expression
+	 * 4:        invalid month value
+	 * 5:        invalid day value 
+	 * 6:        get_date_LONG returned an error (handles own output) */
 
 	switch (error) {
 	case 0:
-		return FALSE;
+		return NO_ERR;
 	case 1:
 		fprintf(stderr, "Error: date expression \"%s\" is not consistently delimited.\n", argv[*index]);
-		return TRUE;
+		return USR_ERR;
 	case 2:
 		fprintf(stderr, "Error: date expression \"%s\" is not correctly formatted.\n", argv[*index]);
-		return TRUE;
+		return USR_ERR;
 	case 3:
 		fprintf(stderr, "Error: date expression \"%s\" is invalid.\n", argv[*index]);
-		return TRUE;
+		return USR_ERR;
 	case 4:
 		fprintf(stderr, "Error: month in date expression \"%s\" outside valid range (1-12).\n", argv[*index]);
-		return TRUE;
+		return USR_ERR;
 	case 5:
 		fprintf(stderr, "Error: day in date expression \"%s\" is not a calendar day.\n", argv[*index]);
-		return TRUE;
+		return USR_ERR;
 	case 6: 
-		return TRUE;
+		return USR_ERR;
 	}
-	return TRUE;
+	return USR_ERR;
 }
 int get_current_date()
 {
@@ -457,7 +458,7 @@ int get_current_date()
 	return date;
 }
 
-int get_amount(char *argv[], int *index, float *amount, int assume_negative, int accept_inf)
+int get_amount(char *argv[], int *index, float *amount, bool assume_negative, bool accept_inf)
 {
 	errno = 0;
 	char *end;
@@ -466,24 +467,24 @@ int get_amount(char *argv[], int *index, float *amount, int assume_negative, int
 	if (errno || *end) {
 		fprintf(stderr, "Error: \"%s\" not a valid expression of amount.\n",
 				argv[*index]);
-		return TRUE;
+		return USR_ERR;
 	}
 	if (fabs(tmp) == INFINITY && !accept_inf) {
 		fprintf(stderr, "Error: passing infinity for an amount is not permitted here.\n");
-		return TRUE;
+		return USR_ERR;
 	}
 	if (assume_negative && argv[*index][0] != '+' && argv[*index][0] != '-')
 		tmp *= -1;
 
 	*index += 1;
 	*amount = tmp;
-	return FALSE;
+	return NO_ERR;
 }
 
 int get_new_records(int argc, char *argv[], int *index, int date_frmt, struct NewRecs_t **new_records)
 {
-	int error = FALSE;
-	int add_flag = FALSE;
+	bool error = false;
+	bool add_flag = false;
 	struct NewRecs_t *record = malloc(sizeof(struct NewRecs_t));
 	initialize_record(&(record->data));
 	record->next = NULL;
@@ -500,39 +501,39 @@ int get_new_records(int argc, char *argv[], int *index, int date_frmt, struct Ne
 			break;
 		case DATE_S:
 		case DATE_L:
-			error = get_date(argv, index, date_frmt, &(record->data.date), FALSE);
+			error = get_date(argv, index, date_frmt, &(record->data.date), false);
 			break;
 		case -1:
 			/* check if amount has already been defined */
 			if (!isnan(record->data.amount)) {
 				*index -= 2;
 				/* add flag is set to escape the loop and process input */
-				add_flag = TRUE;
+				add_flag = true;
 				break;
 			}
 			/* get the amount */
-			error = get_amount(argv, index, &(record->data.amount), TRUE, FALSE);
+			error = get_amount(argv, index, &(record->data.amount), true, false);
 			if (error) 
-				return TRUE;
+				return USR_ERR;
 
 			*index -= 1; /* decrement by one because get_amount sets two forward */
 			break;
 		default:
 			*index -= 2; /* decrement by one so caller reads this argument */
 			/* add flag is set to escape the loop and process input */
-			add_flag = TRUE;
+			add_flag = true;
 			break;
 		}
 	}
 
-	add_flag = FALSE;
+	add_flag = false;
 	/* an amount has not been defined */
 	if (isnan(record->data.amount)) {
-		error = TRUE;
+		error = true;
 	/* if an amount is defined and no errors are present */
 	} else if (!error) {
 		add2front(new_records, record);
-		add_flag = TRUE;
+		add_flag = true;
 
 		if (record->data.date == 0)
 			record->data.date = get_current_date();
@@ -543,16 +544,16 @@ int get_new_records(int argc, char *argv[], int *index, int date_frmt, struct Ne
 			fprintf(stderr, "Error: amount not given for add option.\n");
 		}
 
-		free_list(record, TRUE);
-		return TRUE;
+		free_list(record, true);
+		return USR_ERR;
 	}
 
-	return FALSE;
+	return NO_ERR;
 }
 
 int get_print_commands(int argc, char *argv[], int *index, int date_frmt, struct search_param_t *params)
 {
-	int error = FALSE;
+	int error = NO_ERR;
 
 	while ((*index += 1) && *index < argc && !error) {
 		switch (is_cmdline_option(argv[*index])) {
@@ -562,10 +563,10 @@ int get_print_commands(int argc, char *argv[], int *index, int date_frmt, struct
 			break;
 		case INTERVAL_S:
 		case INTERVAL_L:
-			error = get_date(argv, index, date_frmt, &(params->date1), TRUE);
+			error = get_date(argv, index, date_frmt, &(params->date1), true);
 			/* if no error, within argv still, and the next option is not another command read BOUND2 */
 			if (!error && *index < argc-1 && is_cmdline_option(argv[*index+1]) == -1) {
-				error = get_date(argv, index, date_frmt, &(params->date2), TRUE);
+				error = get_date(argv, index, date_frmt, &(params->date2), true);
 				if (error)
 					*index -= 1;
 			}
@@ -582,21 +583,21 @@ int get_print_commands(int argc, char *argv[], int *index, int date_frmt, struct
 		case FIND_RANGE_L:
 			*index += 1;
 			if (!isnan(params->amnt_bound2)) {
-				error = TRUE;
+				error = USR_ERR;
 				fprintf(stderr, "Error: multiple definitions of amount range.\n");
 				break;
 			}
 
 			/* get first bound */
-			error = get_amount(argv, index, &(params->amnt_bound1), FALSE, TRUE);
+			error = get_amount(argv, index, &(params->amnt_bound1), false, true);
 			/* if the next argument is a number, read that as bound2 */
 			if (!error && *index < argc && is_cmdline_option(argv[*index]) == -1)
-				error = get_amount(argv, index, &(params->amnt_bound2), FALSE, TRUE);
+				error = get_amount(argv, index, &(params->amnt_bound2), false, true);
 
 			/* if bound2 goes unitialized, make it ==bound1 so we search for that amount only */
 			if (isnan(params->amnt_bound2)) {
 				params->amnt_bound2 = params->amnt_bound1;
-			/* reorder bounds if necessary so bound1 < bound2 (for search function */
+			/* reorder bounds if necessary so bound1 < bound2 (for search function) */
 			} else if (params->amnt_bound1 > params->amnt_bound2) {
 				float tmp = params->amnt_bound2;
 				params->amnt_bound2 = params->amnt_bound1;
@@ -609,30 +610,30 @@ int get_print_commands(int argc, char *argv[], int *index, int date_frmt, struct
 			break;
 		case SORT_S:
 		case SORT_L:
-			if (params->sort_flag != FALSE) {
+			if (params->sort_flag != false) {
 				fprintf(stderr, "Error: multiple invocations of \"sort\" sub-option.\n");
-				error = 1;
+				error = USR_ERR;
 				break;
 			}
 
 			/* sorting the records will be handled in the print function */
-			params->sort_flag = TRUE;
+			params->sort_flag = true;
 			break;
 		case REVERSE_S:
 		case REVERSE_L:
-			params->reverse_flag = TRUE;
+			params->reverse_flag = true;
 			break;
 		case NOFOOTER_S:
 		case NOFOOTER_L:
-			params->show_footer = FALSE;
+			params->show_footer = false;
 			break;
 		case LIST_TAGS_S:
 		case LIST_TAGS_L:
-			params->list_tags = TRUE;
+			params->list_tags = true;
 			break;
 		case -1:
 			*index -= 1; /* decrement by 1 because of increment at function caller */
-			return FALSE;
+			return NO_ERR;
 		case TAGS_S:
 		case TAGS_L:
 		case DATE_S:
@@ -640,11 +641,11 @@ int get_print_commands(int argc, char *argv[], int *index, int date_frmt, struct
 		case MESSAGE_S:
 		case MESSAGE_L:
 			fprintf(stderr, "Error: option \"%s\" is not a sub-option for print.\n", argv[*index]);
-			error = TRUE;
+			error = USR_ERR;
 			break;
 		default:
 			*index -= 1;
-			return FALSE;
+			return NO_ERR;
 		}
 	}
 
@@ -655,11 +656,11 @@ int parse_command_line(char *argv[], int argc, char filename[], struct NewRecs_t
 {
 	strcpy(filename, defaults->recs_file);
 
-	int error = FALSE;
+	int error = NO_ERR;
 
 	if (argc == 1) {
 		printf("Usage:\n  ttybudget -a|--add [DATE_FORMAT] amount [ADD_OPTIONS]\n  ttybudget -p|--print [DATE_FORMAT] [PRINT_OPTIONS]\n  ttybudget -e|--edit [DATE_FORMAT] [PRINT_OPTIONS]\n  ttybudget -h|--help\n  ttybudget -v|--version\n  ttybudget CONFIG_OPTIONS [MAIN_OPTIONS]\n");
-		error = 2; 
+		error = EXIT_NOW; 
 	}
 
 	for (int i = 1; i < argc; i++) {
@@ -667,12 +668,12 @@ int parse_command_line(char *argv[], int argc, char filename[], struct NewRecs_t
 		case HELP_S:
 		case HELP_L:
 			printf(HELP_MSG);
-			error = 2; 
+			error = EXIT_NOW; 
 			break;
 		case VERSION_S:
 		case VERSION_L:
 			printf(VER_INFO "\n");
-			error = 2;
+			error = EXIT_NOW;
 			break;
 		case ADD_S: 
 		case ADD_L:
@@ -680,40 +681,40 @@ int parse_command_line(char *argv[], int argc, char filename[], struct NewRecs_t
 			break;
 		case PRINT_S: 
 		case PRINT_L:
-			print_params->print_flag = TRUE;
+			print_params->print_flag = true;
 			error = get_print_commands(argc, argv, &i, defaults->in_date_frmt, print_params);
 			break;
 		case IN_DATE_ISO:
 		case IN_DATE_US:
 			defaults->in_date_frmt = is_cmdline_option(argv[i]);
-			defaults->change_flag = TRUE;
+			defaults->change_flag = true;
 			break;
 		case OUT_DATE_ISO:
 		case OUT_DATE_US:
 		case OUT_DATE_LONG:
 		case OUT_DATE_ABBR:
 			defaults->out_date_frmt = is_cmdline_option(argv[i]);
-			defaults->change_flag = TRUE;
+			defaults->change_flag = true;
 			break;
 		case CURRENCY_S: 
 		case CURRENCY_L: 
 			i++;
 			if (!strcmp(argv[i], "\0")) {
 				defaults->currency_char = 0;
-				defaults->change_flag = TRUE;
+				defaults->change_flag = true;
 			} else if (strlen(argv[i]) != 1) {
 				fprintf(stderr, "Error: argument for option \"%s\" must be a single character.\n", argv[i-1]);
-				error = TRUE;
+				error = USR_ERR;
 			} else {
 				defaults->currency_char = argv[i][0];
-				defaults->change_flag = TRUE;
+				defaults->change_flag = true;
 			}
 			break;
 		case USE_FILE_S:
 		case USE_FILE_L:
 			if ( is_cmdline_option(argv[i+1]) >= ADD_S) {
 				fprintf(stderr, "Error: no argument given for \"%s\".\n", argv[i]);
-				error = TRUE;
+				error = USR_ERR;
 			} else {
 				strncpy(filename, argv[++i], 256);
 			}
@@ -721,12 +722,12 @@ int parse_command_line(char *argv[], int argc, char filename[], struct NewRecs_t
 		/* the argument is not a command line argument */
 		case -1:
 			fprintf(stderr, "Error: invalid option \"%s\".\n", argv[i]);
-			error = TRUE;
+			error = USR_ERR;
 			break;
 		/* the argument is not a main option (e.g. it lacks a parent) */
 		default:
 			fprintf(stderr, "Error: sub-option \"%s\" lacks parent.\n", argv[i]);
-			error = TRUE;
+			error = USR_ERR;
 			break;
 		}
 
@@ -750,9 +751,14 @@ void print_rec_to_file(FILE *outfile, struct record_t record)
 	return;
 }
 
-void write_to_file(struct record_t *records, int n_recs, float start_amnt, char *rec_filename)
+void write_to_file(struct record_t *records, int n_recs, float start_amnt, char *rec_filename, int *err)
 {
 	FILE *rec_file = fopen(rec_filename, "w");
+	if (!rec_file || errno) {
+		fprintf(stderr, "Error opening records file \"%s\" for writing--exiting.\n", rec_filename);
+		*err = SYS_ERR;
+		return;
+	}
 
 	fprintf(rec_file, "%.2f\n", start_amnt);
 
@@ -900,7 +906,8 @@ void print_records(struct record_t *records, int n_recs, float start_amnt, struc
 		free(prints);
 		return;
 	case -3:
-		fprintf(stderr, "No records in amount range %.2f, %.2f found.\n", params.amnt_bound1, params.amnt_bound2);
+		if (n_recs != 0)
+			fprintf(stderr, "No records in amount range %.2f, %.2f found.\n", params.amnt_bound1, params.amnt_bound2);
 		free(prints);
 		return;
 	case -4:
@@ -924,7 +931,7 @@ void print_records(struct record_t *records, int n_recs, float start_amnt, struc
 		struct record_t *tmp = malloc(prints[0]*sizeof(struct record_t));
 		sort_recs_amounts(to_print, tmp, prints[0], 0);
 		if (tmp != to_print)
-			free_recs_array(tmp, n_recs, FALSE);
+			free_recs_array(tmp, n_recs, false);
 	}
 
 	/* decide which date format to employ */
@@ -953,7 +960,7 @@ void print_records(struct record_t *records, int n_recs, float start_amnt, struc
 
 	/* set the display order for records (regular or reversed) */
 	int start, end, inc;
-	if (params.reverse_flag == TRUE) {
+	if (params.reverse_flag == true) {
 		start = prints[0]-1;
 		end = -1;
 		inc = -1;
@@ -994,7 +1001,7 @@ void print_records(struct record_t *records, int n_recs, float start_amnt, struc
 	if (params.show_footer)
 		print_table_footer(records, prints, start_amnt, defs.currency_char);
 
-	free_recs_array(to_print, prints[0], FALSE);
+	free_recs_array(to_print, prints[0], false);
 	free(prints);
 	return;
 }

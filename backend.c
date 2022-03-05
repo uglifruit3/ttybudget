@@ -6,6 +6,7 @@
 #include <errno.h>
 #include <stdio.h>
 #include <unistd.h>
+#include <stdbool.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 
@@ -70,12 +71,12 @@ void initialize_record(struct record_t *record)
 	return;
 }
 
-void free_recs_array(struct record_t *records, int n_recs, int del_tags)
+void free_recs_array(struct record_t *records, int n_recs, bool del_tags)
 {
 	if (records == NULL) 
 		return;
 	for (int i = 0; i < n_recs; i++) {
-		if (del_tags == FALSE || records[i].n_tags == 0)
+		if (del_tags == false || records[i].n_tags == 0)
 			continue;
 
 		for (int j = 0; j < records[i].n_tags; j++)
@@ -89,11 +90,11 @@ void free_recs_array(struct record_t *records, int n_recs, int del_tags)
 
 void init_search_params(struct search_param_t *params)
 {
-	params->print_flag   = FALSE;
-	params->sort_flag    = FALSE;
-	params->show_footer  = TRUE;
-	params->reverse_flag = FALSE;
-	params->list_tags    = FALSE;
+	params->print_flag   = false;
+	params->sort_flag    = false;
+	params->show_footer  = true;
+	params->reverse_flag = false;
+	params->list_tags    = false;
 
 	params->amnt_bound1 = NAN;
 	params->amnt_bound2 = NAN;
@@ -196,7 +197,7 @@ struct record_t *get_records_array(FILE *infile, int num_records, float *start_a
 	struct record_t *records = malloc(num_records*sizeof(struct record_t));
 
 	int i = 0;
-	int error = FALSE;
+	bool error = false;
 	while (fgets(line, 600, infile) != NULL) {
 		line[strlen(line)-1] = '\0'; /* erases newline */
 		char **rec_elements = get_elements(line);
@@ -205,24 +206,23 @@ struct record_t *get_records_array(FILE *infile, int num_records, float *start_a
 
 		/* checks for bad records file values as well */
 		initialize_record(&records[i]);
-		//records[i].amount = atof(rec_elements[0]);
 		errno = 0;
 		records[i].amount = strtof(rec_elements[0], NULL);
 		if (errno != 0) {
 			fprintf(stderr, "Warning: bad records file initial amount value detected.\n");
 		}
-		if (get_date(rec_elements, &index, IN_DATE_ISO, &(records[i].date), TRUE) != FALSE) {
+		if (get_date(rec_elements, &index, IN_DATE_ISO, &(records[i].date), true) != NO_ERR) {
 			fprintf(stderr, "Warning: bad records file date value detected.\n");
-			error = TRUE;
+			error = true;
 		}
-		if (get_message(rec_elements, &index, records[i].message) != FALSE) {
+		if (get_message(rec_elements, &index, records[i].message) != NO_ERR) {
 			fprintf(stderr, "Warning: bad records file message value detected.\n");
-			error = TRUE;
+			error = true;
 		}
 		if (rec_elements[3][0] != '\0') {
-			if (get_tags(rec_elements, &index, &(records[i].tags), &(records[i].n_tags)) != FALSE) {
+			if (get_tags(rec_elements, &index, &(records[i].tags), &(records[i].n_tags)) != NO_ERR) {
 				fprintf(stderr, "Warning: bad records file tag value(s) detected.\n");
-				error = TRUE;
+				error = true;
 			}
 		}
 
@@ -239,40 +239,54 @@ struct record_t *get_records_array(FILE *infile, int num_records, float *start_a
 	return records;
 }
 
-int dir_exists(char dir[])
+bool dir_exists(char dir[], int *err)
 {
 	struct stat dirstat;
-	if (stat(dir, &dirstat) == 0 && S_ISDIR(dirstat.st_mode) != 0)
-		return TRUE;
-	else
-		return FALSE;
+	int f_stat = stat(dir, &dirstat);
+	if (f_stat == 0 && S_ISDIR(dirstat.st_mode) != 0) {
+		return true;
+	} else if (f_stat == -1) {
+		fprintf(stderr, "Error: unable to stat \"%s\"--exiting.\n", dir);
+		*err = SYS_ERR;
+		return false;
+	} else {
+		return false;
+	}
 }
 
-FILE *open_defaults_file(char *mode)
+FILE *open_defaults_file(char *mode, int *err)
 {
 	/* getting the filepath */
 	char defs_path[256];
 	memset(defs_path, '\0', 256);
 	strncpy(defs_path, getenv("HOME"), 128);
 	strcat(defs_path, "/.config");
-	if (!dir_exists(defs_path)) 
+
+	if (!dir_exists(defs_path, err) && *err != SYS_ERR) 
 		mkdir(defs_path, S_IRWXU|S_IRGRP|S_IXGRP|S_IXOTH);
+	else if (*err == SYS_ERR)
+		return NULL;
+
 	strcat(defs_path, "/ttybudget");
-	if (!dir_exists(defs_path)) 
+	if (!dir_exists(defs_path, err) && *err != SYS_ERR) 
 		mkdir(defs_path, S_IRWXU|S_IRGRP|S_IXGRP|S_IXOTH);
+	else if (*err == SYS_ERR)
+		return NULL;
 	strcat(defs_path, "/defaults.conf");
 	errno = 0;
 
 	FILE *defs_file = fopen(defs_path, mode);
-	/* if the file does not exist, initialize it */
+	/* if the file does not exist */
 	if (!defs_file && errno == ENOENT) {
 		errno = 0;
 		fprintf(stderr, "Warning: no config file found (%s does not exist).\n", defs_path);
+		*err = USR_ERR;
 		return NULL;
 	/* otherwise, there is a problem opening the file */
 	} else if (errno || !defs_file) {
 		errno = 0;
 		fprintf(stderr, "Warning: could not open config file \"%s\".\n", defs_path);
+		*err = SYS_ERR;
 		return NULL;
 	}
 
@@ -280,7 +294,7 @@ FILE *open_defaults_file(char *mode)
 	return defs_file;
 }
 
-char *get_defs_buffer(FILE *defs_file)
+char *get_defs_buffer(FILE *defs_file, int *err)
 {
 	if (fseek(defs_file, 0L, SEEK_END) == 0) {
 		long file_size = ftell(defs_file);
@@ -292,27 +306,29 @@ char *get_defs_buffer(FILE *defs_file)
 		if (ferror(defs_file) != 0) {
 			fprintf(stderr, "Error: could not read config file.\n");
 			free(buf);
+			*err = SYS_ERR;
 			return NULL;
 		}
 
 		buf[read_size] = '\0';
-		/* remember to free() outside here */
 		rewind(defs_file);
 		return buf;
 	} else {
 		fprintf(stderr, "Error: could not read config file.\n");
+		*err = SYS_ERR;
 		return NULL;
 	}
 }
 
 int read_defaults(struct defaults_t *defs)
 {
+	int freaderr = NO_ERR;
 	/* initialize defaults */
 	defs->in_date_frmt = defs->out_date_frmt = defs->currency_char = defs->change_flag = 0;
 	memset(defs->recs_file, '\0', 256);
 
-	FILE *defs_file = open_defaults_file("r");
-	if (defs_file == NULL) {
+	FILE *defs_file = open_defaults_file("r", &freaderr);
+	if (!defs_file && freaderr == USR_ERR) {
 		fprintf(stderr, "Warning: default out date format not defined--initializing to abbr format.\n");
 		fprintf(stderr, "Warning: default in date format not defined--initializing to iso format.\n");
 		fprintf(stderr, "Warning: default records file path not defined.\n");
@@ -320,11 +336,17 @@ int read_defaults(struct defaults_t *defs)
 		defs->out_date_frmt = OUT_DATE_ABBR;
 		defs->in_date_frmt = IN_DATE_ISO;
 
-		return 0;
+		return NO_ERR;
+	} else if (!defs_file && freaderr == SYS_ERR) {
+		fprintf(stderr, "Warning: could not open config file.\n");
+		return SYS_ERR;
 	}
 
-	char *buf = get_defs_buffer(defs_file);
+	char *buf = get_defs_buffer(defs_file, &freaderr);
 	fclose(defs_file);
+	if (buf == NULL && freaderr) 
+		return SYS_ERR;
+
 
 	char *def_opts[] = {"date-in", "date-out", "default-path", "currency-char"};
 	char *date_frmts[] = {"iso", "us", "long", "abbr"};
@@ -334,6 +356,7 @@ int read_defaults(struct defaults_t *defs)
 
 	/* parsing buffer */
 	while (buf[i] != '\0') {
+		/* if buf[i] is not a comment */
 		if (buf[i] != '#') {
 			memset(option, '\0', 16);
 			memset(param, '\0', 128);
@@ -343,7 +366,7 @@ int read_defaults(struct defaults_t *defs)
 				if (i > ind+16) {
 					fprintf(stderr, "Error: bad syntax in config file.\n");
 					free(buf);
-					return 1;
+					return USR_ERR;
 				} else {
 					option[i-ind] = buf[i];
 					i++;
@@ -357,7 +380,7 @@ int read_defaults(struct defaults_t *defs)
 				if (i > ind+128) {
 					fprintf(stderr, "Error: bad syntax in config file.\n");
 					free(buf);
-					return 1;
+					return USR_ERR;
 				} else {
 					param[i-ind] = buf[i];
 					i++;
@@ -374,7 +397,7 @@ int read_defaults(struct defaults_t *defs)
 				} else {
 					fprintf(stderr, "Error: default date-in option \"%s\" not valid--exiting.\n", param);
 					free(buf);
-					return 1;
+					return USR_ERR;
 				}
 				break;
 			case 1: /* date-out */
@@ -384,7 +407,7 @@ int read_defaults(struct defaults_t *defs)
 				} else {
 					fprintf(stderr, "Error: default date-out option \"%s\" not valid--exiting.\n", param);
 					free(buf);
-					return 1;
+					return USR_ERR;
 				}
 				break;
 			case 2: /* default path */
@@ -392,7 +415,7 @@ int read_defaults(struct defaults_t *defs)
 				if (param[i-ind-1] != '\"' || param[0] != '\"') {
 					fprintf(stderr, "Error: default records file path must be enclosed in quotes--exiting.\n");
 					free(buf);
-					return 1;
+					return USR_ERR;
 				}
 				while (param[tmp] != '\"') {
 					param[tmp-1] = param[tmp];
@@ -406,7 +429,7 @@ int read_defaults(struct defaults_t *defs)
 				if (param[1] != '\n' && param[1] != '\0') {
 					fprintf(stderr, "Error: currency character incorrectly specified. Must be one character.\n");
 					free(buf);
-					return 1;
+					return USR_ERR;
 				}
 				defs->currency_char = param[0];
 				break;
@@ -431,10 +454,10 @@ int read_defaults(struct defaults_t *defs)
 	if (defs->recs_file[0] == '\0') {
 		fprintf(stderr, "Warning: default records file path not defined.\n");
 	}
-	/* need to perform check for definition of default records path after command line has been parsed for possible file specification */
 
 	/* need to expand the ~ macro if in the specified path */
 	char *tilde_ptr = strchr(defs->recs_file, '~');
+	/* if ~ is present in specified path */
 	if (tilde_ptr != NULL) {
 		int len = strlen(defs->recs_file);
 		char *tmpstr = malloc(len*sizeof(char));
@@ -455,83 +478,7 @@ int read_defaults(struct defaults_t *defs)
 
 		free(tmpstr);
 	}
-	return 0;
-}
-					
-void write_defaults(struct defaults_t defs)
-{
-	FILE *defs_file = open_defaults_file("r+");
-	if (defs_file == NULL)
-		return;
-	char *buf = get_defs_buffer(defs_file);
-
-	ftruncate(fileno(defs_file), 0);
-
-	char option[16];
-	char *date_frmts[] = {"iso", "us", "long", "abbr"};
-	char *def_opts[] = {"date-in", "date-out", "default-path", "currency-char"};
-	int opt_inds[4];   /* order of option indices occurs in same order as in def_opts; indices indicate position of corresponding '=' */
-	int i = 0;
-	/* determine where in the file options are invoked */
-	while (buf[i] != '\0') {
-		if (buf[i] != '#') {
-			memset(option, '\0', 16);
-			int ind = i;
-			while (buf[i] != '=') {
-				option[i-ind] = buf[i];
-				i++;
-			}
-			i++;
-
-			switch (string_in_list(option, def_opts, 4)) {
-			case 0: /* date-in */
-				opt_inds[0] = i;	
-				break;
-			case 1: /* date-out */
-				opt_inds[1] = i;	
-				break;
-			case 2: /* default path */
-				opt_inds[2] = i;	
-				break;
-			case 3: /* default currency character */
-				opt_inds[3] = i;	
-				break;
-			}
-		} 
-		while (buf[i] != '\n') 
-			i++;
-		i++;
-	}
-	/* re-output to file, splicing new parameters where the old ones went */
-	i = 0;
-	while (buf[i] != '\0') {
-		if (i == opt_inds[0]) {
-			fputs(date_frmts[defs.in_date_frmt - IN_DATE_ISO], defs_file);
-			while (buf[i] != ' ' && buf[i] != '\n' && buf[i] != '#')
-				i++;
-		} else if (i == opt_inds[1]) {
-			fputs(date_frmts[defs.out_date_frmt - OUT_DATE_ISO], defs_file);
-			while (buf[i] != ' ' && buf[i] != '\n' && buf[i] != '#')
-				i++;
-		} else if (i == opt_inds[2]) {
-			fputc('\"', defs_file);
-			fputs(defs.recs_file, defs_file);
-			fputc('\"', defs_file);
-			while (buf[i] != ' ' && buf[i] != '\n' && buf[i] != '#')
-				i++;
-		} else if (i == opt_inds[3]) {
-			fputc(defs.currency_char, defs_file);
-			while (buf[i] != ' ' && buf[i] != '\n' && buf[i] != '#')
-				i++;
-		} else {
-			fputc(buf[i], defs_file);
-			i++;
-		}
-	}
-
-	fclose(defs_file);
-	free(buf);
-	return;
+	return NO_ERR;
 }
 
 /* call with runs=0 initially */
@@ -788,7 +735,10 @@ struct tagnode_t *get_tag_list(struct record_t *records, int n_recs, int *n_tags
 
 int *search_records(struct record_t *records, int n_recs, struct search_param_t params)
 {
-	int *err_stat = malloc(sizeof(int));
+	/* status tracks the matching status of the search.
+	 * see table of values in backend.h above this function
+	 * prototype */
+	int *status = malloc(sizeof(int));
 	int *amt_matches = NULL;
 	int *tag_matches = NULL;
 	int *match_inds = NULL;
@@ -802,8 +752,8 @@ int *search_records(struct record_t *records, int n_recs, struct search_param_t 
 
 		if (tmp == NULL) {
 			free(tmp);
-			*err_stat = -2;
-			return err_stat;
+			*status = -2;
+			return status;
 		}
 
 		lo = tmp[0];
@@ -834,10 +784,10 @@ int *search_records(struct record_t *records, int n_recs, struct search_param_t 
 		}
 
 		if (tmp1 == NULL || tmp2 == NULL) {
-			*err_stat = -1;
+			*status = -1;
 			free(tmp1);
 			free(tmp2);
-			return err_stat;
+			return status;
 		}
 		
 		lo = tmp1[0];
@@ -854,24 +804,29 @@ int *search_records(struct record_t *records, int n_recs, struct search_param_t 
 	/* results are not returned for the amt or tag parameters */
 	if (amt_matches == NULL || tag_matches == NULL) {
 		if (tag_matches != NULL)
-			*err_stat = -3;
+			*status = -3;
 		else if (amt_matches != NULL)
-			*err_stat = -4;
+			*status = -4;
 		else
-			*err_stat = -5;
+			*status = -5;
 
 		free(amt_matches);
 		free(tag_matches);
-		return err_stat;
-	/* both parameters return results */
+		return status;
+	/* both parameters return results;
+	 * need to find records which match both searches */
 	} else {
 		int n_matches = 0;
 		match_inds = malloc((amt_matches[0]+1)*sizeof(int));
 
+		/* becomes smallest of either match array */
 		int *ref_arr = (amt_matches[0] < tag_matches[0] ? amt_matches : tag_matches);
+		/* becomes that which ref_arr is not */
 		int *sch_arr = (ref_arr == amt_matches ? tag_matches : amt_matches);
 		int sch_lo = 1;
 
+		/* searches for and collects the records that meet the search criteria for
+		 * ref_arr within  sch_arr */
 		for (int ref_i = 1; ref_i <= ref_arr[0]; ref_i++) {
 			int *result = binary_search(ref_arr[ref_i], sch_arr, sch_arr[0], sch_lo);
 			if (result != NULL) {
@@ -887,7 +842,7 @@ int *search_records(struct record_t *records, int n_recs, struct search_param_t 
 
 	free(amt_matches);
 	free(tag_matches);
-	free(err_stat);
+	free(status);
 	return match_inds;
 }
 

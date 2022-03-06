@@ -338,7 +338,7 @@ int read_defaults(struct defaults_t *defs)
 
 		return NO_ERR;
 	} else if (!defs_file && freaderr == SYS_ERR) {
-		fprintf(stderr, "Warning: could not open config file.\n");
+		fprintf(stderr, "Error: could not open config file.\n");
 		return SYS_ERR;
 	}
 

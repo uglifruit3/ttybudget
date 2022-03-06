@@ -10,6 +10,8 @@
 
 int main(int argc, char *argv[])
 {
+	// TODO write a readme
+	
 	/* takeaways from this project:
 	 *  - use getopt() for command line parsing; in general, look for implementations of common things before doing them yourself
 	 *  - be more sophisticated/thoughtful about types usage at the outset of writing stuff

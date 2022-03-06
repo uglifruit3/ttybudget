@@ -11,7 +11,7 @@
 #include "backend.h"
 #include "io.h"
 
-#define VER_INFO "ttybudget v1.0a - 10 Jan 2022"
+#define VER_INFO "ttybudget 1.0 - 05 March 2022"
 
 #define HELP_MSG "Usage: ttybudget [MAIN OPTIONS ...] RECORDS OPERATIONS ...\n \n Main options:\n   -h, --help                Display this message and exit\n   -v, --version             Display version info and exit\n   --date-in-<iso,us>        Explicitly set the date input format\n   --date-out-<iso,us,long,abbr>\n                             Explicitly set the date input format\n   -c CURR_CHAR, --currency-char \n                             Explicitly define the character prepended to currency \n                               amounts\n   -u RECS_FILE, --use-file  Use the records file given by the path RECS_FILE\n\n Records operations:\n   -a AMOUNT [ADD OPTIONS ...], --add\n                             Add a record to the ledger stored in the records file\n   -p [PRINT OPTIONS ...], --print\n                             Print the records stored in the ledger\n\n Add options:\n   -t TAGS, --tags           Assign tags to the added record\n   -m \"MESSAGE\", --messsage  Assign a message to the added record\n   -d DATE, --date           Assign a date to the added record\n\n Print options:\n   -i DATE1 [DATE2], --interval\n                             Search for records matching DATE1, or occuring inclusively \n                               between DATE1 and DATE2\n   -f VALUE1 [VALUE2], --find-range\n                             Search for records matching VALUE1, or occuring inclusively \n                               between VALUE1 and VALUE2\n   -q TAGS, --query-tags     Search for records with tags matching those specified\n   -s, --sort                Sort displayed records in greatest-to-least currency amount\n   -r, --reverse             Reverse the order in which records are displayed\n   -n, --no-footer           Omit the footer \n   -l, --list-tags           Display a list of all tags associated with displayed records\n\nMandatory or optional arguments for short options are also mandatory or optional for any\n  corresponding long options.\n\nReport any bugs to mszembruski@tutanota.com.\n"
 
@@ -659,7 +659,7 @@ int parse_command_line(char *argv[], int argc, char filename[], struct NewRecs_t
 	int error = NO_ERR;
 
 	if (argc == 1) {
-		printf("Usage:\n  ttybudget -a|--add [DATE_FORMAT] amount [ADD_OPTIONS]\n  ttybudget -p|--print [DATE_FORMAT] [PRINT_OPTIONS]\n  ttybudget -e|--edit [DATE_FORMAT] [PRINT_OPTIONS]\n  ttybudget -h|--help\n  ttybudget -v|--version\n  ttybudget CONFIG_OPTIONS [MAIN_OPTIONS]\n");
+		printf("Usage:\n  ttybudget -a|--add [DATE_FORMAT] amount [ADD_OPTIONS]\n  ttybudget -p|--print [DATE_FORMAT] [PRINT_OPTIONS]\n  ttybudget -h|--help\n  ttybudget -v|--version\n  ttybudget CONFIG_OPTIONS [MAIN_OPTIONS]\n");
 		error = EXIT_NOW; 
 	}
 

@@ -6,8 +6,8 @@
 2. [Installation](https://github.com/uglifruit3/ttybudget#installation)
 3. [Overview](https://github.com/uglifruit3/ttybudget#overview)
 4. [Usage](https://github.com/uglifruit3/ttybudget#usage)
-5. [Files](https://github.com/uglifruit3/ttybudget#files)
-6. [Examples](https://github.com/uglifruit3/ttybudget#example)
+5. [Program files](https://github.com/uglifruit3/ttybudget#program-files)
+6. [Examples](https://github.com/uglifruit3/ttybudget#examples)
 7. [Bugs and feedback](https://github.com/uglifruit3/ttybudget#bugs-and-feedback)
 
 ## About
@@ -94,7 +94,7 @@ When first used, the program will prompt the user to enter a starting amount of 
 * Messages - A message should be enclosed in double quotes and be no more than 256 characters in length.
 * Dates - see Date formats above.
 
-## Files
+## Program files
 -----------------
 ttybudget uses two files for operation. The first is a records file, in which all transactions are stored. ttybudget reads from this file for printing, and stores new transactions here. Its defaults location is /home/$USER/.local/share/ttybudget/records, but can be specified as being elsewhere by command line option (affecting only that invocation of ttybudget) or editing a configuration file (permanently changing the path, explained below). A records file must be specified in one of these manners, or else ttybudget will not operate.
 

@@ -2,16 +2,17 @@
 ### A command line ledger and budgeting tool
 -----------------
 ## Table of Contents
-1. [About](https://github.com/uglifruit3/BeepComp#about)
-2. [Installation](https://github.com/uglifruit3/BeepComp#installation)
-3. [Usage](https://github.com/uglifruit3/BeepComp#usage)
-4. [Files](https://github.com/uglifruit3/BeepComp#example)
-5. [Examples](https://github.com/uglifruit3/BeepComp#example)
-6. [Bugs and feedback](https://github.com/uglifruit3/BeepComp#limitations-and-to-do)
+1. [About](https://github.com/uglifruit3/ttybudget#about)
+2. [Installation](https://github.com/uglifruit3/ttybudget#installation)
+3. [Overview](https://github.com/uglifruit3/ttybudget#overview)
+4. [Usage](https://github.com/uglifruit3/ttybudget#usage)
+5. [Files](https://github.com/uglifruit3/ttybudget#files)
+6. [Examples](https://github.com/uglifruit3/ttybudget#example)
+7. [Bugs and feedback](https://github.com/uglifruit3/ttybudget#bugs-and-feedback)
 
 ## About
 -----------------
-ttybudget is a command line tool for storing, organizing, and strategically reporting personal financial transactions.
+ttybudget is a command line tool for storing, organizing, and usefully displaying personal financial transactions.
 
 It allows for various pieces of amplifying information to be included with the entry of a new transaction, and is equipped with search tools that allow for detailed queries as to existing records.
 
@@ -33,7 +34,7 @@ A record will always contain, at minimum, a currency amount and date. If a date 
 
 ttybudget accesses a records file, containing the ledger which will be read from, written to, and displayed if instructed. If a records file is being accessed for the first time, the user will be prompted to specify the initial amount of money they wish for ttybudget to add/subract transactions to or from. A records file must be specified either in the configuration file, as is typical, or by the user via command line option. If not specified, the program will exit with an error.
 
-Amplifying information regarding usage, configuration file syntax, return values, and entry/output formats for all types of data can be found in the ttybudget's manpage.
+Amplifying information regarding usage, configuration file syntax, return values, and entry/output formats for all types of data can be found in ttybudget's manpage.
 
 ## Usage
 -----------------

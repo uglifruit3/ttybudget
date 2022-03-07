@@ -817,19 +817,31 @@ void print_amnt_cc(char sign, char curr_char, float amnt)
 	return;
 }
 
-void print_table_footer(struct record_t *records, int *matches, float start_amnt, char cur_char)
+void print_table_footer(struct record_t *records, int n_recs, int *matches, float start_amnt, char cur_char)
 {
 	/* get funds at start of period */
-	for (int i = 0; i < matches[1]; i++) 
-		start_amnt += records[i].amount;	
+	//for (int i = 0; i < matches[1]; i++) 
+	//	start_amnt += records[i].amount;	
+	int i = 0;
+	while (records[i].date < records[matches[1]].date) {
+		start_amnt += records[i].amount;
+		i++;
+	}
 	/* get funds at end of period */
 	float end_amnt = start_amnt;
-	for (int i = matches[1]; i <= matches[matches[0]]; i++) 
-		end_amnt += records[i].amount;
+	//for (int i = matches[1]; i <= matches[matches[0]]; i++) 
+	//	end_amnt += records[i].amount;
 	/* get selected records total */
+	while (records[i].date <= records[matches[matches[0]]].date && i < n_recs) {
+		end_amnt += records[i].amount;
+		i++;
+	}
 	float recs_tot = 0;
-	for (int i = matches[1]; i <= matches[matches[0]]; i++)
+	int j = 1;
+	for (int i = matches[j]; j <= matches[0]; i = matches[j]) {
 		recs_tot += records[i].amount;
+		j++;
+	}
 	/* change in funds */
 	float delta = end_amnt - start_amnt;
 
@@ -999,7 +1011,7 @@ void print_records(struct record_t *records, int n_recs, float start_amnt, struc
 	if (params.list_tags)
 		print_tags(to_print, prints[0]);
 	if (params.show_footer)
-		print_table_footer(records, prints, start_amnt, defs.currency_char);
+		print_table_footer(records, n_recs, prints, start_amnt, defs.currency_char);
 
 	free_recs_array(to_print, prints[0], false);
 	free(prints);

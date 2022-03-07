@@ -106,7 +106,7 @@ void print_date_ABBR(struct record_t record);
 void print_amnt_no_cc(char sign, char curr_char, float amnt);
 void print_amnt_cc(char sign, char curr_char, float amnt);
 
-void print_table_footer(struct record_t *records, int *matches, float start_amnt, char cur_char);
+void print_table_footer(struct record_t *records, int n_recs, int *matches, float start_amnt, char cur_char);
 void print_tags(struct record_t *records, int n_recs);
 
 /* prints formatted output to the terminal and applies search parameters */

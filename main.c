@@ -10,7 +10,7 @@
 
 int main(int argc, char *argv[])
 {
-	// TODO write a readme
+	// TODO include a negation operator/functionality for search tools (so -p [print option [!] arguments]
 	
 	/* takeaways from this project:
 	 *  - use getopt() for command line parsing; in general, look for implementations of common things before doing them yourself

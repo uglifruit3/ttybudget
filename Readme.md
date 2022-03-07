@@ -20,11 +20,15 @@ This is an amateur project; having undertaken it with little notable prior exper
 
 ## Installation
 -----------------
-The included makefile performs all actions necessary for installation. Clone the repository to your machine, navigate to it, and as root, run 
-```bash
+The included makefile performs all actions necessary for installation. Clone the repository to your machine, navigate to it, and run
+```
+$ sudo make install USR=$USER
+```
+If one does not wish to use, or does not have `sudo` installed, the command
+```
 # make install USR='username'
 ```
-where 'username' is name of the user in whose home directory ttybudget files will be stored.
+where `'username'` is the name of the user in whose home directory ttybudget information will be stored. 
 
 ## Overview
 -----------------
@@ -83,16 +87,16 @@ Mandatory or optional arguments for short options are also mandatory or optional
 When first used, the program will prompt the user to enter a starting amount of money. This is the amount of money the user has at the moment, and it is this amount that ttybudget will add to or subtract from when calculating totals.
 
 ### Formats
-* Dates - A date can be input and output in 4 distinct formats.
+* **Dates** - A date can be input and output in 4 distinct formats.
 	* iso refers to ISO 6801 (YYYYMMDD)
 	* us refers to the date format commonly used in the United States (MMDDYYYY)
 		* When being input, both us and iso formats accept dates with slashes or hyphens as delimeters (e.g. YYYY-MM-DD or YYYY/MM/DD in iso) or with no delimeters at all (YYYYMMDD).
 	* long is the most verbose date format, consisting of DD Month YYYY
 	* abbr is an abbreviated form of long, consisting of DD MON YYYY where MON is a month's three-letter abbreviation.
 		* Both of these formats are accepted as inputs without the need to specify such. Months are not case sensitive. Spaces must be used as delimeters when inputting these formats.
-* Tags - A tag is a string consisting of no more than 32 of the characters '{a..z}', '{A..Z}', '\_', and '-'. Multiple tags are delimited by commas (',') without spaces between them. An arbitrary number of tags may be assigned to a record.
-* Messages - A message should be enclosed in double quotes and be no more than 256 characters in length.
-* Dates - see Date formats above.
+* **Tags** - A tag is a string consisting of no more than 32 of the characters '{a..z}', '{A..Z}', '\_', and '-'. Multiple tags are delimited by commas (',') without spaces between them. An arbitrary number of tags may be assigned to a record.
+* **Messages** - A message should be enclosed in double quotes and be no more than 256 characters in length.
+* **Amounts** - when amounts are entered, any significant digits past the 100s place will be truncated. When entering a currency amount for an added record, the amount is assumed to be negative (as in an expenditure); a positive amount can be specified by prepending a '+' character. When entering amounts or dates as arguments to print options, infinity or negative infinity are accepted in addition to real values (inf/-inf, INF/-INF, infinity/-infinity, and INFINITY/-INFINITY are all valid).
 
 ## Program files
 -----------------

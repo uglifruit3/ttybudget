@@ -101,13 +101,13 @@ void print_rec_to_file(FILE *outfile, struct record_t record);
 /* writes a records array to an output file */
 void write_to_file(struct record_t *records, int n_recs, float start_amnt, char *rec_filename, int *err);
 
-void print_date_ISO(struct record_t record);
-void print_date_US(struct record_t record);
-void print_date_LONG(struct record_t record);
-void print_date_ABBR(struct record_t record);
+void print_date_ISO(int date, FILE *device);
+void print_date_US(int date, FILE *device);
+void print_date_LONG(int date, FILE *device);
+void print_date_ABBR(int date, FILE *device);
 
-void print_amnt_no_cc(char sign, char curr_char, float amnt);
-void print_amnt_cc(char sign, char curr_char, float amnt);
+void print_amnt_no_cc(char sign, char curr_char, float amnt, int field_width);
+void print_amnt_cc(char sign, char curr_char, float amnt, int field_width);
 
 void print_table_footer(struct record_t *records, int n_recs, int *matches, float start_amnt, char cur_char);
 void print_tags(struct record_t *records, int n_recs);

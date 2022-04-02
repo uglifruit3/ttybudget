@@ -68,13 +68,15 @@ Usage: ttybudget [MAIN OPTIONS ...] RECORDS OPERATIONS ...
    -d DATE, --date           Assign a date to the added record
 
  Print options:
-   -i DATE1 [DATE2], --interval
+   -i [!] DATE1 [DATE2], --interval
                              Search for records matching DATE1, or occuring inclusively
-                               between DATE1 and DATE2
-   -f VALUE1 [VALUE2], --find-range
+                               between DATE1 and DATE2. '!' inverts results
+   -f [!] VALUE1 [VALUE2], --find-range
                              Search for records matching VALUE1, or occuring inclusively
-                               between VALUE1 and VALUE2
-   -q TAGS, --query-tags     Search for records with tags matching those specified
+                               between VALUE1 and VALUE2. '!' inverts results
+   -q [!] TAGS, --query-tags 
+                             Search for records with tags matching those specified. '!'
+                               inverts results.
    -s, --sort                Sort displayed records in greatest-to-least currency amount
    -r, --reverse             Reverse the order in which records are displayed
    -n, --no-footer           Omit the footer

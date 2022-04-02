@@ -13,7 +13,7 @@
 
 #define VER_INFO "ttybudget 1.0 - 05 March 2022"
 
-#define HELP_MSG "Usage: ttybudget [MAIN OPTIONS ...] RECORDS OPERATIONS ...\n \n Main options:\n   -h, --help                Display this message and exit\n   -v, --version             Display version info and exit\n   --date-in-<iso,us>        Explicitly set the date input format\n   --date-out-<iso,us,long,abbr>\n                             Explicitly set the date input format\n   -c CURR_CHAR, --currency-char \n                             Explicitly define the character prepended to currency \n                               amounts\n   -u RECS_FILE, --use-file  Use the records file given by the path RECS_FILE\n\n Records operations:\n   -a AMOUNT [ADD OPTIONS ...], --add\n                             Add a record to the ledger stored in the records file\n   -p [PRINT OPTIONS ...], --print\n                             Print the records stored in the ledger\n\n Add options:\n   -t TAGS, --tags           Assign tags to the added record\n   -m \"MESSAGE\", --messsage  Assign a message to the added record\n   -d DATE, --date           Assign a date to the added record\n\n Print options:\n   -i DATE1 [DATE2], --interval\n                             Search for records matching DATE1, or occuring inclusively \n                               between DATE1 and DATE2\n   -f VALUE1 [VALUE2], --find-range\n                             Search for records matching VALUE1, or occuring inclusively \n                               between VALUE1 and VALUE2\n   -q TAGS, --query-tags     Search for records with tags matching those specified\n   -s, --sort                Sort displayed records in greatest-to-least currency amount\n   -r, --reverse             Reverse the order in which records are displayed\n   -n, --no-footer           Omit the footer \n   -l, --list-tags           Display a list of all tags associated with displayed records\n\nMandatory or optional arguments for short options are also mandatory or optional for any\n  corresponding long options.\n\nReport any bugs to mszembruski@tutanota.com.\n"
+#define HELP_MSG "Usage: ttybudget [MAIN OPTIONS ...] RECORDS OPERATIONS ...\n \n Main options:\n   -h, --help                Display this message and exit\n   -v, --version             Display version info and exit\n   --date-in-<iso,us>        Explicitly set the date input format\n   --date-out-<iso,us,long,abbr>\n                             Explicitly set the date input format\n   -c CURR_CHAR, --currency-char \n                             Explicitly define the character prepended to currency \n                               amounts\n   -u RECS_FILE, --use-file  Use the records file given by the path RECS_FILE\n\n Records operations:\n   -a AMOUNT [ADD OPTIONS ...], --add\n                             Add a record to the ledger stored in the records file\n   -p [PRINT OPTIONS ...], --print\n                             Print the records stored in the ledger\n\n Add options:\n   -t TAGS, --tags           Assign tags to the added record\n   -m \"MESSAGE\", --messsage  Assign a message to the added record\n   -d DATE, --date           Assign a date to the added record\n\n Print options:\n   -i [!] DATE1 [DATE2], --interval\n                             Search for records matching DATE1, or occuring inclusively \n                               between DATE1 and DATE2. '!' inverts results. \n   -f [!] VALUE1 [VALUE2], --find-range\n                             Search for records matching VALUE1, or occuring inclusively \n                               between VALUE1 and VALUE2. '!' inverts results.\n   -q [!] TAGS, --query-tags\n                             Search for records with tags matching those specified\n                               '!' inverts results.\n   -s, --sort                Sort displayed records in greatest-to-least currency amount\n   -r, --reverse             Reverse the order in which records are displayed\n   -n, --no-footer           Omit the footer \n   -l, --list-tags           Display a list of all tags associated with displayed records\n\nMandatory or optional arguments for short options are also mandatory or optional for any\n  corresponding long options.\n\nReport any bugs to mszembruski@tutanota.com.\n"
 
 void add2front(struct NewRecs_t **list, struct NewRecs_t *new) 
 {
@@ -604,6 +604,11 @@ int get_print_commands(int argc, char *argv[], int *index, int date_frmt, struct
 			}
 
 			/* check for end of argv buffer */
+			if (*index >= argc) {
+				error = USR_ERR;
+				fprintf(stderr, "Error: amount not given for find range option.\n");
+				break;
+			}
 			
 			/* get first bound */
 			error = get_amount(argv, index, &(params->amnt_bound1), false, true);
@@ -786,51 +791,102 @@ void write_to_file(struct record_t *records, int n_recs, float start_amnt, char 
 	return;
 }
 
-void print_date_ISO(struct record_t record)
+void print_date_ISO(int date, FILE *device)
 {
-	int yr = record.date/10000;
-	int mo = (record.date - yr*10000)/100;
-	int dy = record.date - yr*10000 - mo*100;
-	printf(" %i-%02i-%02i ", yr, mo, dy);
+	if (date == INT_MIN) {
+		fprintf(device, " -inf ");
+		return;
+	} else if (date == INT_MAX) {
+		fprintf(device, " inf ");
+		return;
+	}
+
+	int yr = date/10000;
+	int mo = (date - yr*10000)/100;
+	int dy = date - yr*10000 - mo*100;
+	fprintf(device, " %i-%02i-%02i ", yr, mo, dy);
 	return;
 }
-void print_date_US(struct record_t record)
+void print_date_US(int date, FILE *device)
 {
-	int yr = record.date/10000;
-	int mo = (record.date - yr*10000)/100;
-	int dy = record.date - yr*10000 - mo*100;
-	printf(" %02i-%02i-%i ", mo, dy, yr);
+	if (date == INT_MIN) {
+		fprintf(device, " -inf ");
+		return;
+	} else if (date == INT_MAX) {
+		fprintf(device, " inf ");
+		return;
+	}
+
+	int yr = date/10000;
+	int mo = (date - yr*10000)/100;
+	int dy = date - yr*10000 - mo*100;
+	fprintf(device, " %02i-%02i-%i ", mo, dy, yr);
 	return;
 }
-void print_date_LONG(struct record_t record)
+void print_date_LONG(int date, FILE *device)
 {
-	int yr = record.date/10000;
-	int mo = (record.date - yr*10000)/100;
-	int dy = record.date - yr*10000 - mo*100;
+	if (date == INT_MIN) {
+		fprintf(device, " -inf ");
+		return;
+	} else if (date == INT_MAX) {
+		fprintf(device, " inf ");
+		return;
+	}
+
+	int yr = date/10000;
+	int mo = (date - yr*10000)/100;
+	int dy = date - yr*10000 - mo*100;
 
 	char *l_mos[]  = {"January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"};
-	printf(" %02i %-9s %i ", dy, l_mos[mo-1], yr);
+	fprintf(device, " %02i %-9s %i ", dy, l_mos[mo-1], yr);
 	return;
 }
-void print_date_ABBR(struct record_t record)
+void print_date_ABBR(int date, FILE *device)
 {
-	int yr = record.date/10000;
-	int mo = (record.date - yr*10000)/100;
-	int dy = record.date - yr*10000 - mo*100;
+	if (date == INT_MIN) {
+		fprintf(device, " -inf ");
+		return;
+	} else if (date == INT_MAX) {
+		fprintf(device, " inf ");
+		return;
+	}
+
+	int yr = date/10000;
+	int mo = (date - yr*10000)/100;
+	int dy = date - yr*10000 - mo*100;
 
 	char *s_mos[] = {"Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"};
-	printf(" %02i %s %i ", dy, s_mos[mo-1], yr);
+	fprintf(device, " %02i %s %i ", dy, s_mos[mo-1], yr);
 	return;
 }
 
-void print_amnt_no_cc(char sign, char curr_char, float amnt)
+void print_amnt_no_cc(char sign, char curr_char, float amnt, int field_width)
 {
-	printf("  %c%-10.2f ", sign, fabs(amnt));
+	char str[16];
+	char frmt[16];
+	sprintf(frmt, "    %%%i.2f    ", field_width);
+        sprintf(str, frmt, fabs(amnt));
+
+	int i;
+	for (i = 0; str[i] == ' '; i++);
+	str[i-1] = sign;
+
+	printf(str);
 	return;
 }
-void print_amnt_cc(char sign, char curr_char, float amnt)
+void print_amnt_cc(char sign, char curr_char, float amnt, int field_width)
 {
-	printf(" %c%c%-10.2f ", sign, curr_char, fabs(amnt));
+	char str[16];
+	char frmt[16];
+	sprintf(frmt, "    %%%i.2f    ", field_width);
+        sprintf(str, frmt, fabs(amnt));
+
+	int i;
+	for (i = 0; str[i] == ' '; i++);
+	str[i-2] = sign;
+	str[i-1] = curr_char;
+
+	printf(str);
 	return;
 }
 
@@ -860,9 +916,11 @@ void print_table_footer(struct record_t *records, int n_recs, int *matches, floa
 	/* display output */
 	char signs[] = {'-', '+'};
 	printf("=========================================================================\n");
-	printf(" Funds at start of period: %c%c%-10.2f | Change in funds:     %c%c%-10.2f\n", signs[start_amnt >= 0], cur_char, fabs(start_amnt), signs[delta >= 0], cur_char, fabs(delta));
+	//printf(" Funds at start of period: %c%c%-10.2f | Change in funds:     %c%c%-10.2f\n", signs[start_amnt >= 0], cur_char, fabs(start_amnt), signs[delta >= 0], cur_char, fabs(delta));
+	printf(" Funds at start of period: %c%c%-10.2f | Selected records total: %c%c%-10.2f\n", signs[start_amnt >= 0], cur_char, fabs(start_amnt), signs[recs_tot >= 0], cur_char, fabs(recs_tot));
 	printf(" Funds at end of period:   %c%c%-10.2f |\n", signs[end_amnt >= 0], cur_char, fabs(end_amnt));
-	printf(" Selected records total:   %c%c%-10.2f | Cash flow in period: %s\n\n", signs[recs_tot >= 0], cur_char, fabs(recs_tot), (delta >= 0 ? "POSITIVE":"NEGATIVE"));
+	//printf(" Selected records total:   %c%c%-10.2f | Cash flow in period: %s\n\n", signs[recs_tot >= 0], cur_char, fabs(recs_tot), (delta >= 0 ? "POSITIVE":"NEGATIVE"));
+	printf(" Change in funds:          %c%c%-10.2f | Cash flow in period: %s\n\n", signs[delta >= 0], cur_char, fabs(delta), (delta >= 0 ? "POSITIVE":"NEGATIVE"));
 
 	return;
 }
@@ -919,14 +977,38 @@ void print_records(struct record_t *records, int n_recs, float start_amnt, struc
 {
 	int *prints = search_records(records, n_recs, params);
 
+	/* decide which date format to employ */
+	void (*print_date)(int date, FILE *device);
+	switch (defs.out_date_frmt) {
+	case OUT_DATE_ISO:
+		print_date = &print_date_ISO;	
+		break;
+	case OUT_DATE_US:
+		print_date = &print_date_US;	
+		break;
+	case OUT_DATE_LONG:
+		print_date = &print_date_LONG;	
+		break;
+	case OUT_DATE_ABBR:
+		print_date = &print_date_ABBR;	
+		break;
+	}
+
+
 	/* display output and exit if the search returns no results */
 	switch (*prints) {
 	case -1:
-		fprintf(stderr, "No records in date range %i, %i found.\n", params.date1, params.date2);
+		fprintf(stderr, "No records between dates");
+		print_date(params.date1, stderr);
+		fprintf(stderr, "and");
+		print_date(params.date2, stderr);
+		fprintf(stderr, "found.\n");
 		free(prints);
 		return;
 	case -2:
-		fprintf(stderr, "No records with date %i found.\n", params.date2);
+		fprintf(stderr, "No records with date"); 
+		print_date(params.date2, stderr);
+		fprintf(stderr, "found.\n");
 		free(prints);
 		return;
 	case -3:
@@ -949,8 +1031,14 @@ void print_records(struct record_t *records, int n_recs, float start_amnt, struc
 	/* search_records relies upon binary searching, meaning that the array must be searched before sorting. 
 	 * To avoid having reorder the prints array, an array of all matches is constructed and sorted as necessary */
 	struct record_t *to_print = malloc(prints[0]*sizeof(struct record_t));
-	for (int i = 1; i <= prints[0]; i++)
+	float max_amnt = 0;
+	for (int i = 1; i <= prints[0]; i++) {
 		to_print[i-1] = records[prints[i]];
+		/* also finding largest records amount for getting field width of numbers */
+		if (fabs(records[prints[i]].amount) > max_amnt)
+			max_amnt = fabs(records[prints[i]].amount);
+	}
+
 	if (params.sort_flag) {
 		struct record_t *tmp = malloc(prints[0]*sizeof(struct record_t));
 		sort_recs_amounts(to_print, tmp, prints[0], 0);
@@ -958,25 +1046,8 @@ void print_records(struct record_t *records, int n_recs, float start_amnt, struc
 			free_recs_array(tmp, n_recs, false);
 	}
 
-	/* decide which date format to employ */
-	void (*print_date)(struct record_t);
-	switch (defs.out_date_frmt) {
-	case OUT_DATE_ISO:
-		print_date = &print_date_ISO;	
-		break;
-	case OUT_DATE_US:
-		print_date = &print_date_US;	
-		break;
-	case OUT_DATE_LONG:
-		print_date = &print_date_LONG;	
-		break;
-	case OUT_DATE_ABBR:
-		print_date = &print_date_ABBR;	
-		break;
-	}
-
 	/* decide whether to print with a currency character */
-	void (*print_amnt)(char sign, char curr_char, float amnt);
+	void (*print_amnt)(char sign, char curr_char, float amnt, int field_width);
 	if (defs.currency_char == 0)
 		print_amnt = &print_amnt_no_cc;
 	else
@@ -994,15 +1065,17 @@ void print_records(struct record_t *records, int n_recs, float start_amnt, struc
 		inc = 1;
 	}
 	
+	/* get max number field width */
+	int fw = (int) log10(max_amnt) + 4;
 	/* display output */
 	char signs[] = {'-', '+'};
 	int i = start;
 	/* index starts at start, moves by inc each iteration, until it is equal to end */
 	while (i != end) {
 		/* print the date */
-		(*print_date)(to_print[i]);
+		(*print_date)(to_print[i].date, stdout);
 		/* print amounts */
-		print_amnt(signs[to_print[i].amount >= 0], defs.currency_char, to_print[i].amount);
+		print_amnt(signs[to_print[i].amount >= 0], defs.currency_char, to_print[i].amount, fw);
 		/* print message */
 		if (to_print[i].message[0] != '\0')
 			printf("\"%s\" ", to_print[i].message);

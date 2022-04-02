@@ -96,6 +96,10 @@ void init_search_params(struct search_param_t *params)
 	params->reverse_flag = false;
 	params->list_tags    = false;
 
+	params->negate_date  = false;
+	params->negate_tags  = false;
+	params->negate_range = false;
+
 	params->amnt_bound1 = NAN;
 	params->amnt_bound2 = NAN;
 
@@ -615,20 +619,53 @@ int *search_recs_date(int param, struct record_t *records, int hi, int lo)
 	return results;
 }
 
-int *search_recs_amount(float amnt1, float amnt2, struct record_t *records, int bound1, int bound2)
+void negate_matches(int **matches, int n_recs)
+{
+		/* if inverted results will contain all or no records */
+		if (*matches == NULL) {
+			*matches = malloc(sizeof(int));
+			(*matches)[0] = 0;
+		} else if ((*matches)[0] == n_recs) {
+			free(*matches);
+			*matches = NULL;
+		}
+			
+		int *tmp = malloc((n_recs - (*matches)[0] + 1)*sizeof(int));
+		tmp[0] = n_recs - (*matches)[0];
+		int ind = 1;
+
+		for (int i = 0; i < n_recs; i++) {
+			for (int j = 1; j <= (*matches)[0]; j++) {
+				if (i == (*matches)[j]) {
+					i++;
+					j = 1;
+				}
+			}
+
+		if (ind == (n_recs - (*matches)[0] + 1))
+			break;
+		tmp[ind] = i;
+		ind++;
+		}	
+
+		free(*matches);
+		*matches = tmp;
+}
+
+int *search_recs_amount(float amnt1, float amnt2, bool negate, struct record_t *records, int n_recs, int *search_arr)
 {
 	if (isnan(amnt1) && isnan(amnt2)) {
 		amnt1 = -INFINITY;
 		amnt2 =  INFINITY;
 	}
 
-	int *match_indices = malloc((bound2-bound1+2)*sizeof(int));
+	int *match_indices = malloc((search_arr[0]+1)*sizeof(int));
 	match_indices[0] = 0;
 
 	int j = 1;
-	for (int i = bound1; i <= bound2; i++) {
-		if (records[i].amount >= amnt1 && records[i].amount <= amnt2) {
-			match_indices[j] = i;
+	for (int i = 1; i <= search_arr[0]; i++) {
+		if (records[search_arr[i]].amount >= amnt1 && records[search_arr[i]].amount <= amnt2) {
+			match_indices[j] = search_arr[i];
 			j++;
 			match_indices[0]++;
 		}
@@ -641,17 +678,20 @@ int *search_recs_amount(float amnt1, float amnt2, struct record_t *records, int 
 		match_indices = NULL;
 	}
 
+	if (negate)
+		negate_matches(&match_indices, n_recs);
+
 	return match_indices;
 }
 
-int *search_recs_tags(char **tags, int n_tags, struct record_t *records, int bound1, int bound2)
+int *search_recs_tags(char **tags, int n_tags, bool negate, struct record_t *records, int n_recs, int *search_arr)
 {
 	/* if tags are unitialized, don't bother searching for tags */
 	if (n_tags == 0) {
-		int *matches = malloc((bound2-bound1+2)*sizeof(int));
-		matches[0] = bound2 - bound1 + 1;
-		for (int i = bound1; i <= bound2; i++)
-			matches[i-bound1+1] = i;
+		int *matches = malloc((search_arr[0]+1)*sizeof(int));
+		matches[0] = search_arr[0]+1;
+		for (int i = 1; i <= search_arr[0]; i++)
+			matches[i] = search_arr[i];
 		return matches;
 	}
 
@@ -661,14 +701,14 @@ int *search_recs_tags(char **tags, int n_tags, struct record_t *records, int bou
 		strcpy(tags_cpy[i], tags[i]);
 	}
 
-	int *match_indices = malloc((bound2-bound1+2)*sizeof(int));
+	int *match_indices = malloc((search_arr[0]+1)*sizeof(int));
 	match_indices[0] = 0;
 
 	int j = 1;
-	for (int i = bound1; i <= bound2; i++) {
-		for (int k = 0; k < records[i].n_tags; k++) {
-			if (string_in_list(records[i].tags[k], tags_cpy, n_tags) != -1) {
-				match_indices[j] = i;
+	for (int i = 1; i <= search_arr[0]; i++) {
+		for (int k = 0; k < records[search_arr[i]].n_tags; k++) {
+			if (string_in_list(records[search_arr[i]].tags[k], tags_cpy, n_tags) != -1) {
+				match_indices[j] = search_arr[i];
 				j++;
 				match_indices[0]++;
 				break;
@@ -684,6 +724,9 @@ int *search_recs_tags(char **tags, int n_tags, struct record_t *records, int bou
 		free(match_indices);
 		match_indices = NULL;
 	}
+
+	if (negate)
+		negate_matches(&match_indices, n_recs);
 
 	return match_indices;
 }
@@ -739,6 +782,7 @@ int *search_records(struct record_t *records, int n_recs, struct search_param_t 
 	 * see table of values in backend.h above this function
 	 * prototype */
 	int *status = malloc(sizeof(int));
+	int *date_matches = NULL;
 	int *amt_matches = NULL;
 	int *tag_matches = NULL;
 	int *match_inds = NULL;
@@ -796,10 +840,27 @@ int *search_records(struct record_t *records, int n_recs, struct search_param_t 
 		free(tmp2);
 	}
 
+	if (params.negate_date) {
+		date_matches = malloc((n_recs - (hi-lo))*sizeof(int));
+		date_matches[0] = n_recs - (hi-lo) - 1;
+		/* get those leading up to lo */
+		for (int i = 0; i < lo; i++)
+			date_matches[i+1] = i;
+		/* get those after hi */
+		for (int i = hi+1; i < n_recs; i++)
+			date_matches[i-(hi-lo)] = i;
+	} else {
+		date_matches = malloc((hi - lo + 2)*sizeof(int));
+		date_matches[0] = hi - lo + 1;
+		for (int i = lo; i <= hi; i++)
+			date_matches[i-lo+1] = i;
+	}
+
 	/* get matches for amt and tag searches */
 	/* amount param is always initialized, no need for branching */
-	amt_matches = search_recs_amount(params.amnt_bound1, params.amnt_bound2, records, lo, hi);
-	tag_matches = search_recs_tags(params.tags, params.n_tags, records, lo, hi);
+	amt_matches = search_recs_amount(params.amnt_bound1, params.amnt_bound2, params.negate_range, records, n_recs, date_matches);
+	tag_matches = search_recs_tags(params.tags, params.n_tags, params.negate_tags, records, n_recs, date_matches);
+	free(date_matches);
 
 	/* results are not returned for the amt or tag parameters */
 	if (amt_matches == NULL || tag_matches == NULL) {
@@ -836,7 +897,8 @@ int *search_records(struct record_t *records, int n_recs, struct search_param_t 
 				n_matches++;
 			}
 		}
-		match_inds = realloc(match_inds, (n_matches+1)*sizeof(int));
+		if (amt_matches[0] != n_matches)
+			match_inds = realloc(match_inds, (n_matches+1)*sizeof(int));
 		match_inds[0] = n_matches;
 	}
 

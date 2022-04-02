@@ -34,6 +34,9 @@ struct search_param_t {
 	bool show_footer;
 	bool sort_flag;
 	bool reverse_flag;
+	bool negate_tags;
+	bool negate_date;
+	bool negate_range;
 	bool list_tags;
 	float amnt_bound1;
 	float amnt_bound2;
@@ -96,10 +99,10 @@ void sort_taglist(struct tagnode_t *taglist, struct tagnode_t *tmp, int n, int r
 int *search_recs_date(int date, struct record_t *records, int hi, int lo);
 /* returns the indices of all amounts within lower bound1 and upper bound2; returns NULL if none present.
  * Index 0 of the returned array denotes the number of matches */
-int *search_recs_amount(float amnt1, float amnt2, struct record_t *records, int bound1, int bound2);
+int *search_recs_amount(float amnt1, float amnt2, bool negate, struct record_t *records, int n_recs, int *search_arr);
 /* returns the indices of all records that contain one of the specified tags within bound1 
  * and bound2; return behavior is same as amount search */
-int *search_recs_tags(char **tags, int n_tags, struct record_t *records, int bound1, int bound2);
+int *search_recs_tags(char **tags, int n_tags, bool negate, struct record_t *records, int n_recs, int *search_arr);
 /* gets a list of tags occuring in the given records array */
 struct tagnode_t *get_tag_list(struct record_t *records, int n_recs, int *n_tags);
 /* master search function. Returns an array consisting of the matched indices in the passed records array,

@@ -10,7 +10,12 @@
 
 int main(int argc, char *argv[])
 {
-	// TODO include a negation operator/functionality for search tools (so -p [print option [!] arguments]
+	// TODO segfaults occur when print option find amount is not given arguments - fix
+	// TODO right-align amounts
+	// TODO change positions of record info in footer
+	// TODO improve record-not-found messages
+	// TODO retool print_date_* functions to accept integer date representation vice record struct
+	// TODO have search reporting use print_date_* functions
 	
 	/* takeaways from this project:
 	 *  - use getopt() for command line parsing; in general, look for implementations of common things before doing them yourself

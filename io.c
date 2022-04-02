@@ -458,6 +458,18 @@ int get_current_date()
 	return date;
 }
 
+bool get_negator(int argc, char *argv[], int *index)
+{
+	*index += 1;
+	if (*index >= argc || strcmp(argv[*index], "!")) {
+		*index -= 1;
+		return false;
+	} else {
+		return true;
+	}
+}
+
+
 int get_amount(char *argv[], int *index, float *amount, bool assume_negative, bool accept_inf)
 {
 	errno = 0;
@@ -559,10 +571,12 @@ int get_print_commands(int argc, char *argv[], int *index, int date_frmt, struct
 		switch (is_cmdline_option(argv[*index])) {
 		case QUERY_S:
 		case QUERY_L:
+			params->negate_tags = get_negator(argc, argv, index);
 			error = get_tags(argv, index, &(params->tags), &(params->n_tags));
 			break;
 		case INTERVAL_S:
 		case INTERVAL_L:
+			params->negate_date = get_negator(argc, argv, index);
 			error = get_date(argv, index, date_frmt, &(params->date1), true);
 			/* if no error, within argv still, and the next option is not another command read BOUND2 */
 			if (!error && *index < argc-1 && is_cmdline_option(argv[*index+1]) == -1) {
@@ -581,6 +595,7 @@ int get_print_commands(int argc, char *argv[], int *index, int date_frmt, struct
 			break;
 		case FIND_RANGE_S:
 		case FIND_RANGE_L:
+			params->negate_range = get_negator(argc, argv, index);
 			*index += 1;
 			if (!isnan(params->amnt_bound2)) {
 				error = USR_ERR;
@@ -588,6 +603,8 @@ int get_print_commands(int argc, char *argv[], int *index, int date_frmt, struct
 				break;
 			}
 
+			/* check for end of argv buffer */
+			
 			/* get first bound */
 			error = get_amount(argv, index, &(params->amnt_bound1), false, true);
 			/* if the next argument is a number, read that as bound2 */
@@ -820,8 +837,6 @@ void print_amnt_cc(char sign, char curr_char, float amnt)
 void print_table_footer(struct record_t *records, int n_recs, int *matches, float start_amnt, char cur_char)
 {
 	/* get funds at start of period */
-	//for (int i = 0; i < matches[1]; i++) 
-	//	start_amnt += records[i].amount;	
 	int i = 0;
 	while (records[i].date < records[matches[1]].date) {
 		start_amnt += records[i].amount;
@@ -829,19 +844,16 @@ void print_table_footer(struct record_t *records, int n_recs, int *matches, floa
 	}
 	/* get funds at end of period */
 	float end_amnt = start_amnt;
-	//for (int i = matches[1]; i <= matches[matches[0]]; i++) 
-	//	end_amnt += records[i].amount;
+
 	/* get selected records total */
 	while (records[i].date <= records[matches[matches[0]]].date && i < n_recs) {
 		end_amnt += records[i].amount;
 		i++;
 	}
 	float recs_tot = 0;
-	int j = 1;
-	for (int i = matches[j]; j <= matches[0]; i = matches[j]) {
-		recs_tot += records[i].amount;
-		j++;
-	}
+	for (int i = 1; i <= matches[0]; i++)
+		recs_tot += records[matches[i]].amount;
+
 	/* change in funds */
 	float delta = end_amnt - start_amnt;
 

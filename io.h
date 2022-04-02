@@ -82,6 +82,9 @@ int get_date(char *argv[], int *index, int format, int *date, bool accept_inf);
 /* obtains the current date in ISO integer representation */
 int get_current_date();
 
+/* looks for a negation operator where appropriate and returns the value of what a negation
+ * flag should be. Also moves index as necessary to continue parsing command line arguments */
+bool get_negator(int argc, char *argv[], int *index);
 /* obtains an amount from a record when adding records */
 int get_amount(char *argv[], int *index, float *amount, bool assume_negative, bool accept_inf);
 

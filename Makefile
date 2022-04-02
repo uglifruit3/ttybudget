@@ -11,13 +11,8 @@ USR = $(USER)
 	$(CC) -c -o $@ $< $(CFLAGS)
 ttybudget: $(OBJS)
 	$(CC) -o $(BIN) $^ $(CFLAGS)
-	# create the initial records location if nonexistent
-	if [ ! -d /home/$(USR)/.local/share/ttybudget ]; then mkdir --parents /home/$(USR)/.local/share/ttybudget; fi
-	chown $(USR) /home/$(USR)/.local/share/ttybudget/
-	# create the config file if nonexistent
-	if [ ! -d /home/$(USR)/.config/ttybudget ]; then mkdir --parents /home/$(USR)/.config/ttybudget; fi
-	if [ ! -f /home/$(USR)/.config/ttybudget/defaults.conf ]; then cp template.defaults.conf /home/$(USR)/.config/ttybudget/defaults.conf; fi
-	chown $(USR) /home/$(USR)/.config/ttybudget/defaults.conf
+
+clean:
 	# get rid of loose object files
 	rm -f *.o
 
@@ -27,3 +22,10 @@ install: $(BIN)
 	# install manpage
 	if [ ! -d $(MANPATH) ]; then mkdir --parents $(MANPATH); fi
 	cp ttybudget.1.gz $(MANPATH)/
+	# create the initial records location if nonexistent
+	if [ ! -d /home/$(USR)/.local/share/ttybudget ]; then mkdir --parents /home/$(USR)/.local/share/ttybudget; fi
+	chown $(USR) /home/$(USR)/.local/share/ttybudget/
+	# create the config file if nonexistent
+	if [ ! -d /home/$(USR)/.config/ttybudget ]; then mkdir --parents /home/$(USR)/.config/ttybudget; fi
+	if [ ! -f /home/$(USR)/.config/ttybudget/defaults.conf ]; then cp template.defaults.conf /home/$(USR)/.config/ttybudget/defaults.conf; fi
+	chown $(USR) /home/$(USR)/.config/ttybudget/defaults.conf

@@ -820,6 +820,8 @@ int *search_records(struct record_t *records, int n_recs, struct search_param_t 
 			tmp2 = search_recs_date(params.date2, records, n_recs-1, 0);
 			params.date2--;
 		}
+		/* need to add 1 to keep date2 reflective of final date found */
+		params.date2++;
 		while (tmp1 == NULL) {
 			if (params.date1 > params.date2)
 				break;

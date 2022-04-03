@@ -40,7 +40,7 @@ int *binary_search(int term, int *list, int hi, int lo)
 		while (ref > 0 && list[ref-1] == term)
 			ref--;
 		int hi = ref;
-		while (hi < max_ind && list[hi+1] == term)
+		while (hi+1 < max_ind && list[hi+1] == term)
 			hi++;
 
 		int *lohi = malloc(2*sizeof(int));

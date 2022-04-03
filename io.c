@@ -902,7 +902,7 @@ void print_table_footer(struct record_t *records, int n_recs, int *matches, floa
 	float end_amnt = start_amnt;
 
 	/* get selected records total */
-	while (records[i].date <= records[matches[matches[0]]].date && i < n_recs) {
+	while (i < n_recs && records[i].date <= records[matches[matches[0]]].date) {
 		end_amnt += records[i].amount;
 		i++;
 	}

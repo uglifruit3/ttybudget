@@ -37,10 +37,10 @@ int *binary_search(int term, int *list, int hi, int lo)
 	int max_ind = hi;
 
 	if (list[ref] == term) {
-		while (ref > 0 && list[ref-1] == term)
+		while (ref >= 0 && list[ref-1] == term)
 			ref--;
 		int hi = ref;
-		while (hi+1 < max_ind && list[hi+1] == term)
+		while (hi+1 <= max_ind && list[hi+1] == term)
 			hi++;
 
 		int *lohi = malloc(2*sizeof(int));

@@ -916,10 +916,8 @@ void print_table_footer(struct record_t *records, int n_recs, int *matches, floa
 	/* display output */
 	char signs[] = {'-', '+'};
 	printf("=========================================================================\n");
-	//printf(" Funds at start of period: %c%c%-10.2f | Change in funds:     %c%c%-10.2f\n", signs[start_amnt >= 0], cur_char, fabs(start_amnt), signs[delta >= 0], cur_char, fabs(delta));
 	printf(" Funds at start of period: %c%c%-10.2f | Selected records total: %c%c%-10.2f\n", signs[start_amnt >= 0], cur_char, fabs(start_amnt), signs[recs_tot >= 0], cur_char, fabs(recs_tot));
 	printf(" Funds at end of period:   %c%c%-10.2f |\n", signs[end_amnt >= 0], cur_char, fabs(end_amnt));
-	//printf(" Selected records total:   %c%c%-10.2f | Cash flow in period: %s\n\n", signs[recs_tot >= 0], cur_char, fabs(recs_tot), (delta >= 0 ? "POSITIVE":"NEGATIVE"));
 	printf(" Change in funds:          %c%c%-10.2f | Cash flow in period: %s\n\n", signs[delta >= 0], cur_char, fabs(delta), (delta >= 0 ? "POSITIVE":"NEGATIVE"));
 
 	return;

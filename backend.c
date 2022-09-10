@@ -213,19 +213,19 @@ struct record_t *get_records_array(FILE *infile, int num_records, float *start_a
 		errno = 0;
 		records[i].amount = strtof(rec_elements[0], NULL);
 		if (errno != 0) {
-			fprintf(stderr, "Warning: bad records file initial amount value detected.\n");
+			fprintf(stderr, "Error: bad records file initial amount value detected.\n");
 		}
 		if (get_date(rec_elements, &index, IN_DATE_ISO, &(records[i].date), true) != NO_ERR) {
-			fprintf(stderr, "Warning: bad records file date value detected.\n");
+			fprintf(stderr, "Error: bad records file date value detected.\n");
 			error = true;
 		}
 		if (get_message(rec_elements, &index, records[i].message) != NO_ERR) {
-			fprintf(stderr, "Warning: bad records file message value detected.\n");
+			fprintf(stderr, "Error: bad records file message value detected.\n");
 			error = true;
 		}
 		if (rec_elements[3][0] != '\0') {
 			if (get_tags(rec_elements, &index, &(records[i].tags), &(records[i].n_tags)) != NO_ERR) {
-				fprintf(stderr, "Warning: bad records file tag value(s) detected.\n");
+				fprintf(stderr, "Error: bad records file tag value(s) detected.\n");
 				error = true;
 			}
 		}
@@ -258,7 +258,7 @@ bool dir_exists(char dir[], int *err)
 	}
 }
 
-FILE *open_defaults_file(char *mode, int *err)
+FILE *open_defaults_file(char *mode, int *err, int print_mode)
 {
 	/* getting the filepath */
 	char defs_path[256];
@@ -283,13 +283,15 @@ FILE *open_defaults_file(char *mode, int *err)
 	/* if the file does not exist */
 	if (!defs_file && errno == ENOENT) {
 		errno = 0;
-		fprintf(stderr, "Warning: no config file found (%s does not exist).\n", defs_path);
+		if (print_mode != NO_WARNINGS)
+			fprintf(stderr, "(%i): Warning: no config file found (%s does not exist).\n", ++(*Warning_Count), defs_path);
 		*err = USR_ERR;
 		return NULL;
 	/* otherwise, there is a problem opening the file */
 	} else if (errno || !defs_file) {
 		errno = 0;
-		fprintf(stderr, "Warning: could not open config file \"%s\".\n", defs_path);
+		if (print_mode != NO_WARNINGS)
+			fprintf(stderr, "(%i): Warning: could not open config file \"%s\".\n", ++(*Warning_Count), defs_path);
 		*err = SYS_ERR;
 		return NULL;
 	}
@@ -324,36 +326,12 @@ char *get_defs_buffer(FILE *defs_file, int *err)
 	}
 }
 
-int read_defaults(struct defaults_t *defs)
+int parse_defaults_buffer(char *buf, struct defaults_t *defs)
 {
-	int freaderr = NO_ERR;
-	/* initialize defaults */
-	defs->in_date_frmt = defs->out_date_frmt = defs->currency_char = defs->change_flag = 0;
-	memset(defs->recs_file, '\0', 256);
-
-	FILE *defs_file = open_defaults_file("r", &freaderr);
-	if (!defs_file && freaderr == USR_ERR) {
-		fprintf(stderr, "Warning: default out date format not defined--initializing to abbr format.\n");
-		fprintf(stderr, "Warning: default in date format not defined--initializing to iso format.\n");
-		fprintf(stderr, "Warning: default records file path not defined.\n");
-
-		defs->out_date_frmt = OUT_DATE_ABBR;
-		defs->in_date_frmt = IN_DATE_ISO;
-
-		return NO_ERR;
-	} else if (!defs_file && freaderr == SYS_ERR) {
-		fprintf(stderr, "Error: could not open config file.\n");
-		return SYS_ERR;
-	}
-
-	char *buf = get_defs_buffer(defs_file, &freaderr);
-	fclose(defs_file);
-	if (buf == NULL && freaderr) 
-		return SYS_ERR;
-
-
-	char *def_opts[] = {"date-in", "date-out", "default-path", "currency-char"};
+	char *def_opts[] = {"date-in", "date-out", "default-path", "currency-char", "color"};
+	int no_def_opts = 5;
 	char *date_frmts[] = {"iso", "us", "long", "abbr"};
+	char *color_options[] = {"true", "on", "false", "off"};
 	int i = 0;
 	char option[16];
 	char param[128];
@@ -369,7 +347,6 @@ int read_defaults(struct defaults_t *defs)
 			while (buf[i] != '=') {
 				if (i > ind+16) {
 					fprintf(stderr, "Error: bad syntax in config file.\n");
-					free(buf);
 					return USR_ERR;
 				} else {
 					option[i-ind] = buf[i];
@@ -383,7 +360,6 @@ int read_defaults(struct defaults_t *defs)
 			while (buf[i] != '\n' && buf[i] != '#') {
 				if (i > ind+128) {
 					fprintf(stderr, "Error: bad syntax in config file.\n");
-					free(buf);
 					return USR_ERR;
 				} else {
 					param[i-ind] = buf[i];
@@ -393,34 +369,35 @@ int read_defaults(struct defaults_t *defs)
 
 			int tmp;
 			/* identify which option has been invoked and store its parameter in the defaults structure */
-			switch (string_in_list(option, def_opts, 4)) {
+			switch (string_in_list(option, def_opts, no_def_opts)) {
 			case 0: /* date-in */
 				tmp = string_in_list(param, date_frmts, 4);
 				if (tmp == 0 || tmp == 1) {
-					defs->in_date_frmt = tmp + IN_DATE_ISO;
-				} else {
-					fprintf(stderr, "Error: default date-in option \"%s\" not valid--exiting.\n", param);
-					free(buf);
-					return USR_ERR;
+					if (defs->in_date_frmt == 0)
+						defs->in_date_frmt = tmp + IN_DATE_ISO;
+				} else if (defs->print_mode != NO_WARNINGS) {
+					fprintf(stderr, "(%i): Warning: default date-in setting \"%s\" not valid. Option will be left undefined.\n", ++(*Warning_Count), param);
 				}
 				break;
 			case 1: /* date-out */
 				tmp = string_in_list(param, date_frmts, 4);
 				if (tmp != -1) {
-					defs->out_date_frmt = tmp + OUT_DATE_ISO;
-				} else {
-					fprintf(stderr, "Error: default date-out option \"%s\" not valid--exiting.\n", param);
-					free(buf);
-					return USR_ERR;
+					if (defs->out_date_frmt == 0)
+						defs->out_date_frmt = tmp + OUT_DATE_ISO;
+				} else if (defs->print_mode != NO_WARNINGS) {
+					fprintf(stderr, "(%i): Warning: default date-out setting \"%s\" not valid. Option will be left undefined.\n", ++(*Warning_Count), param);
 				}
 				break;
 			case 2: /* default path */
 				tmp = 1;
-				if (param[i-ind-1] != '\"' || param[0] != '\"') {
-					fprintf(stderr, "Error: default records file path must be enclosed in quotes--exiting.\n");
-					free(buf);
-					return USR_ERR;
-				}
+				if ((param[i-ind-1] != '\"' || param[0] != '\"') && defs->print_mode != NO_WARNINGS) {
+					fprintf(stderr, "(%i): Warning: default records file path must be enclosed in quotes. Option will be left undefined.\n", ++(*Warning_Count));
+					break;
+				} 
+				
+				if (defs->recs_file[0] != '\0')
+					break;
+
 				while (param[tmp] != '\"') {
 					param[tmp-1] = param[tmp];
 					tmp++;
@@ -430,13 +407,31 @@ int read_defaults(struct defaults_t *defs)
 				strncpy(defs->recs_file, param, 256);
 				break;
 			case 3: /* default currency character */
-				if (param[1] != '\n' && param[1] != '\0') {
-					fprintf(stderr, "Error: currency character incorrectly specified. Must be one character.\n");
-					free(buf);
-					return USR_ERR;
+				if (param[1] != '\n' && param[1] != '\0' && defs->print_mode != NO_WARNINGS) {
+					fprintf(stderr, "(%i): Warning: default currency character incorrectly specified. Must be one character. Defaulting to none.\n", ++(*Warning_Count));
+				} else if (!defs->currency_defined) {
+					defs->currency_char = param[0];
+					defs->currency_defined = true;
 				}
-				defs->currency_char = param[0];
 				break;
+			case 4: /* color printing */
+				tmp = string_in_list(param, color_options, 4);
+				if (tmp == 0 || tmp == 1) {
+					defs->color_on = true;
+					defs->color_defined = true;
+				} else if (tmp == 2 || tmp == 3) {
+					defs->color_on = false;
+					defs->color_defined = true;
+				} else {
+					if (defs->print_mode != NO_WARNINGS)
+						fprintf(stderr, "(%i): Warning: default color printing option \"%s\" not valid. Defaulting to none.\n", ++(*Warning_Count), param);
+					defs->color_on = false;
+					defs->color_defined = true;
+				}
+				break;
+			default:
+				fprintf(stderr, "Error: bad syntax in config file.\n");
+				return USR_ERR;
 			}
 		} 
 		/* advance to the next line */
@@ -445,19 +440,47 @@ int read_defaults(struct defaults_t *defs)
 		i++;
 	}
 
-	free(buf);
+	return NO_ERR;
+}
+
+int read_defaults(struct defaults_t *defs)
+{
+	int freaderr = NO_ERR;
+
+	FILE *defs_file = open_defaults_file("r", &freaderr, defs->print_mode);
+	if (defs_file) {
+		char *buf = get_defs_buffer(defs_file, &freaderr);
+		fclose(defs_file);
+		if (buf == NULL || freaderr) 
+			return SYS_ERR;
+
+		int err = parse_defaults_buffer(buf, defs);
+		free(buf);
+
+		if (err)
+			return err;
+	}
+	
 	/* check if any of the defaults have not been defined */
 	if (defs->out_date_frmt == 0) {
-		fprintf(stderr, "Warning: default out date format not defined--initializing to abbr format.\n");
+		if (defs->print_mode != NO_WARNINGS)
+			fprintf(stderr, "(%i): Warning: default out date format not defined--initializing to abbr format.\n", ++(*Warning_Count));
 		defs->out_date_frmt = OUT_DATE_ABBR;
 	}
 	if (defs->in_date_frmt == 0) {
-		fprintf(stderr, "Warning: default in date format not defined--initializing to iso format.\n");
+		if (defs->print_mode != NO_WARNINGS)
+			fprintf(stderr, "(%i): Warning: default in date format not defined--initializing to iso format.\n", ++(*Warning_Count));
 		defs->in_date_frmt = IN_DATE_ISO;
 	}
-	if (defs->recs_file[0] == '\0') {
-		fprintf(stderr, "Warning: default records file path not defined.\n");
+	if (defs->recs_file[0] == '\0' && defs->print_mode != NO_WARNINGS) {
+		fprintf(stderr, "(%i): Warning: default records file path not defined.\n", ++(*Warning_Count));
 	}
+	if (!defs->color_defined) {
+		if (defs->print_mode != NO_WARNINGS)
+			fprintf(stderr, "(%i): Warning: default color printing mode not defined--initializing to off.\n", ++(*Warning_Count));
+		defs->color_on = false;
+	}
+
 
 	/* need to expand the ~ macro if in the specified path */
 	char *tilde_ptr = strchr(defs->recs_file, '~');

@@ -10,10 +10,7 @@
 
 #include "backend.h"
 #include "io.h"
-
-#define VER_INFO "ttybudget 1.1 - 03 April 2022"
-
-#define HELP_MSG "Usage: ttybudget [MAIN OPTIONS ...] RECORDS OPERATIONS ...\n \n Main options:\n   -h, --help                Display this message and exit\n   -v, --version             Display version info and exit\n   --date-in-<iso,us>        Explicitly set the date input format\n   --date-out-<iso,us,long,abbr>\n                             Explicitly set the date input format\n   -c CURR_CHAR, --currency-char \n                             Explicitly define the character prepended to currency \n                               amounts\n   -u RECS_FILE, --use-file  Use the records file given by the path RECS_FILE\n\n Records operations:\n   -a AMOUNT [ADD OPTIONS ...], --add\n                             Add a record to the ledger stored in the records file\n   -p [PRINT OPTIONS ...], --print\n                             Print the records stored in the ledger\n\n Add options:\n   -t TAGS, --tags           Assign tags to the added record\n   -m \"MESSAGE\", --messsage  Assign a message to the added record\n   -d DATE, --date           Assign a date to the added record\n\n Print options:\n   -i [!] DATE1 [DATE2], --interval\n                             Search for records matching DATE1, or occuring inclusively \n                               between DATE1 and DATE2. '!' inverts results. \n   -f [!] VALUE1 [VALUE2], --find-range\n                             Search for records matching VALUE1, or occuring inclusively \n                               between VALUE1 and VALUE2. '!' inverts results.\n   -q [!] TAGS, --query-tags\n                             Search for records with tags matching those specified\n                               '!' inverts results.\n   -s, --sort                Sort displayed records in greatest-to-least currency amount\n   -r, --reverse             Reverse the order in which records are displayed\n   -n, --no-footer           Omit the footer \n   -l, --list-tags           Display a list of all tags associated with displayed records\n\nMandatory or optional arguments for short options are also mandatory or optional for any\n  corresponding long options.\n\nReport any bugs to mszembruski@tutanota.com.\n"
+#include "info.h"
 
 void add2front(struct NewRecs_t **list, struct NewRecs_t *new) 
 {
@@ -82,10 +79,12 @@ signed int is_cmdline_option(char *str1)
 		"-v", "--version",
 		"--date-in-iso", "--date-in-us",            /* 28-33 date formats */
 		"--date-out-iso", "--date-out-us", "--date-out-long", "--date-out-abbr",
-		"-c", "--currency",                         /* 34-35 currency config */
-		"-u", "--use-file"                          /* 36-37 use file config */
+		"-c", "--currency-char",                    /* 34-35 currency config */
+		"-u", "--use-file",                         /* 36-37 use file config */
+		"--color-on", "--color-off",                /* 38-39 color printing */
+		"--no-warn", "--warn-only"                  /* 40-41 warning options */
 	};
-	const int num_opts = 38;
+	const int num_opts = 42;
 
 	signed int opt = string_in_list(str1, (char **)cmdline_opts, num_opts);
 			
@@ -676,8 +675,6 @@ int get_print_commands(int argc, char *argv[], int *index, int date_frmt, struct
 
 int parse_command_line(char *argv[], int argc, char filename[], struct NewRecs_t **new_records, struct search_param_t *print_params, struct defaults_t *defaults)
 {
-	strcpy(filename, defaults->recs_file);
-
 	int error = NO_ERR;
 
 	if (argc == 1) {
@@ -721,15 +718,13 @@ int parse_command_line(char *argv[], int argc, char filename[], struct NewRecs_t
 		case CURRENCY_S: 
 		case CURRENCY_L: 
 			i++;
-			if (!strcmp(argv[i], "\0")) {
-				defaults->currency_char = 0;
-				defaults->change_flag = true;
-			} else if (strlen(argv[i]) != 1) {
-				fprintf(stderr, "Error: argument for option \"%s\" must be a single character.\n", argv[i-1]);
-				error = USR_ERR;
-			} else {
+			if (strlen(argv[i]) == 1 || !strcmp(argv[i], "\0")) {
 				defaults->currency_char = argv[i][0];
 				defaults->change_flag = true;
+				defaults->currency_defined = true;
+			} else {
+				fprintf(stderr, "Error: argument for option \"%s\" must be a single character.\n", argv[i-1]);
+				error = USR_ERR;
 			}
 			break;
 		case USE_FILE_S:
@@ -740,6 +735,20 @@ int parse_command_line(char *argv[], int argc, char filename[], struct NewRecs_t
 			} else {
 				strncpy(filename, argv[++i], 256);
 			}
+			break;
+		case COLOR_ON:
+			defaults->color_on = true;
+			defaults->color_defined = true;
+			break;
+		case COLOR_OFF:
+			defaults->color_on = false;
+			defaults->color_defined = true;
+			break;
+		case WARNINGS_ONLY:
+			defaults->print_mode = WARNINGS_ONLY;
+			break;
+		case NO_WARNINGS:
+			defaults->print_mode = NO_WARNINGS;
 			break;
 		/* the argument is not a command line argument */
 		case -1:
@@ -917,7 +926,7 @@ void print_table_footer(struct record_t *records, int n_recs, int *matches, floa
 	char signs[] = {'-', '+'};
 	printf("=========================================================================\n");
 	printf(" Funds at start of period: %c%c%-10.2f | Selected records total: %c%c%-10.2f\n", signs[start_amnt >= 0], cur_char, fabs(start_amnt), signs[recs_tot >= 0], cur_char, fabs(recs_tot));
-	printf(" Funds at end of period:   %c%c%-10.2f | Total records displayed: %i\n", signs[end_amnt >= 0], cur_char, fabs(end_amnt), n_recs);
+	printf(" Funds at end of period:   %c%c%-10.2f | Records displayed: %i/%i\n", signs[end_amnt >= 0], cur_char, fabs(end_amnt), matches[0], n_recs);
 	printf(" Change in funds:          %c%c%-10.2f | Cash flow in period: %s\n\n", signs[delta >= 0], cur_char, fabs(delta), (delta >= 0 ? "POSITIVE":"NEGATIVE"));
 
 	return;
@@ -973,6 +982,15 @@ void print_tags(struct record_t *records, int n_recs)
 
 void print_records(struct record_t *records, int n_recs, float start_amnt, struct search_param_t params, struct defaults_t defs)
 {
+	if (defs.print_mode == WARNINGS_ONLY) {
+		if (*Warning_Count == 0)
+			printf("No warnings issued.\n");
+		return;
+	}
+
+	if (*Warning_Count > 0)
+		printf("\n=========================================================================\n");
+
 	int *prints = search_records(records, n_recs, params);
 
 	/* decide which date format to employ */
@@ -991,7 +1009,6 @@ void print_records(struct record_t *records, int n_recs, float start_amnt, struc
 		print_date = &print_date_ABBR;	
 		break;
 	}
-
 
 	/* display output and exit if the search returns no results */
 	switch (*prints) {
@@ -1098,5 +1115,9 @@ void print_records(struct record_t *records, int n_recs, float start_amnt, struc
 
 	free_recs_array(to_print, prints[0], false);
 	free(prints);
+
+	if (*Warning_Count > 0)
+		printf("%i warnings issued.\n  Scroll to top of output to view or run with '--warn-only' option to exclusively display them.\n  Run with '--no-warn' option to hide these messages.\n\n", *Warning_Count); 
+
 	return;
 }

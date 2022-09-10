@@ -5,6 +5,8 @@
 
 #include "backend.h"
 
+extern int *Warning_Count;
+
 enum Commandline_Options {
 	ADD_S, ADD_L,
 		TAGS_S, TAGS_L,
@@ -23,7 +25,9 @@ enum Commandline_Options {
 	IN_DATE_ISO, IN_DATE_US,
 	OUT_DATE_ISO, OUT_DATE_US, OUT_DATE_LONG, OUT_DATE_ABBR,
 	CURRENCY_S, CURRENCY_L,
-       	USE_FILE_S, USE_FILE_L
+       	USE_FILE_S, USE_FILE_L,
+	COLOR_ON, COLOR_OFF,
+	NO_WARNINGS, WARNINGS_ONLY
 };
 
 /* linked list structure for accumulating new records to be added */

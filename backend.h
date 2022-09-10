@@ -8,6 +8,8 @@
 #define MAX_TAG_LEN 32
 #define MAX_MSG_LEN 256
 
+extern int *Warning_Count;
+
 /* enum for handling/returning different error types */
 /*                  0       1        2         3     */
 enum err_types { NO_ERR, USR_ERR, SYS_ERR, EXIT_NOW };
@@ -50,9 +52,17 @@ struct search_param_t {
 struct defaults_t {
 	int out_date_frmt;
 	int in_date_frmt;
+
 	char recs_file[256];
+
 	char currency_char;
+	bool currency_defined;
+
 	bool change_flag;
+	bool color_on;
+	bool color_defined;
+
+	int print_mode;
 };
 
 #include "io.h"
@@ -83,9 +93,11 @@ struct record_t *get_records_array(FILE *infile, int num_records, float *start_a
 /* functions for reading/writing defaults */
 bool dir_exists(char dir[], int *err);
 /* opens the defaults file, given a mode adherent to fopen() */
-FILE *open_defaults_file(char *mode, int *err);
+FILE *open_defaults_file(char *mode, int *err, int print_mode);
 /* returns a complete buffer of the defaults file */
 char *get_defs_buffer(FILE *defs_file, int *err);
+/* parses the text of the defaults file and assigns defaults accordingly */
+int parse_defaults_buffer(char *buf, struct defaults_t *defs);
 /* reads default values from file. Returns 0 if normal, 1 if error */
 int read_defaults(struct defaults_t *defs);
 

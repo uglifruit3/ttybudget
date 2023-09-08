@@ -15,13 +15,14 @@ int main(int argc, char *argv[])
 	/* takeaways from this project:
 	 *  - use getopt() for command line parsing; in general, look for implementations of common things before doing them yourself
 	 *  - be more sophisticated/thoughtful about types usage at the outset of writing stuff
-	 *  - use stdbool.h for booleans
 	 *  - be more detailed in error tracking/reporting, and be prepared for edge cases and catching errors in library calls
 	 *  - learn how to do file i/o better */
 
 	// TODO create an interface to edit entries
 	// TODO create a color mode, make it a defaults option, display tags more nicely
 
+	/* error state variable */
+	int err = NO_ERR;
 
 	/* initialize defaults */
 	struct defaults_t defaults;
@@ -29,15 +30,37 @@ int main(int argc, char *argv[])
 	defaults.currency_char = '\0';
 	defaults.print_mode = 0;
 	memset(defaults.recs_file, '\0', 256);
+	/* initialize warning tracker and read defaults from file */
+	Warning_Count = malloc(sizeof(int));
+	*Warning_Count = 0;
+	err = read_defaults(&defaults);
+	if (err)
+		return err;
 
-	/* error state checker */
-	int err = NO_ERR;
-
-
-	/* define new new records and search parameters storage */
+	/* define new records and search parameters storage */
 	struct NewRecs_t *new_records = NULL;
 	struct search_param_t print_params;
 	init_search_params(&print_params);
+
+	/* read input records file */
+	FILE *infile = NULL;
+	infile = open_records_file(defaults.recs_file, &err);
+	if (infile == NULL) {
+		free_list(new_records, true);
+		free_search_params(print_params);
+		return err;
+	}
+	float tot_cash = 0;
+	struct record_t *records = NULL;
+	int n_recs = 0;
+	n_recs = get_num_records(infile);
+	records = get_records_array(infile, n_recs, &tot_cash);
+	fclose(infile);
+	if (records == NULL && n_recs != 0) {
+		free_list(new_records, true);
+		free_search_params(print_params);
+		return USR_ERR;
+	}
 
 	/* get command line input */
 	err = parse_command_line(argv, argc, defaults.recs_file, &new_records, &print_params, &defaults);
@@ -49,35 +72,6 @@ int main(int argc, char *argv[])
 			return NO_ERR;
 		else
 			return err;
-	}
-
-	/* initialize warning tracker and read defaults from file */
-	Warning_Count = malloc(sizeof(int));
-	*Warning_Count = 0;
-	err = read_defaults(&defaults);
-	if (err)
-		return err;
-
-	/* read input records file */
-	FILE *infile = NULL;
-	infile = open_records_file(defaults.recs_file, &err);
-	if (infile == NULL) {
-		free_list(new_records, true);
-		free_search_params(print_params);
-		return err;
-	}
-
-
-	float tot_cash = 0;
-	struct record_t *records = NULL;
-	int n_recs = 0;
-	n_recs = get_num_records(infile);
-	records = get_records_array(infile, n_recs, &tot_cash);
-	fclose(infile);
-	if (records == NULL && n_recs != 0) {
-		free_list(new_records, true);
-		free_search_params(print_params);
-		return USR_ERR;
 	}
 
 	records = add_records(new_records, records, &n_recs);

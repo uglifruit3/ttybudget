@@ -917,24 +917,28 @@ bool search_results_exist(int search_return, struct search_param_t params, int n
 	return true;
 }
 
-void print_amnt_no_cc(char sign, char curr_char, float amnt, int field_width)
+void print_amnt_col(char sign, char curr_char, float amnt, int field_width)
 {
-	char str[16];
-	char frmt[16];
-	sprintf(frmt, "    %%%i.2f    ", field_width);
+	char str[36];
+	char frmt[36];
+	if (amnt < 0)
+		sprintf(frmt, "%s    %%%i.2f    %s", COL_RED, field_width, COL_RESET);
+	else
+		sprintf(frmt, "%s    %%%i.2f    %s", COL_GRN, field_width, COL_RESET);
         sprintf(str, frmt, fabs(amnt));
 
 	int i;
-	for (i = 0; str[i] == ' '; i++);
-	str[i-1] = sign;
+	for (i = 7; str[i] == ' '; i++);
+	str[i-2] = sign;
+	str[i-1] = curr_char;
 
 	printf(str);
 	return;
 }
-void print_amnt_cc(char sign, char curr_char, float amnt, int field_width)
+void print_amnt_nocol(char sign, char curr_char, float amnt, int field_width)
 {
-	char str[16];
-	char frmt[16];
+	char str[36];
+	char frmt[36];
 	sprintf(frmt, "    %%%i.2f    ", field_width);
         sprintf(str, frmt, fabs(amnt));
 
@@ -946,6 +950,7 @@ void print_amnt_cc(char sign, char curr_char, float amnt, int field_width)
 	printf(str);
 	return;
 }
+
 
 void print_table_footer(struct record_t *records, int n_recs, int *matches, float start_amnt, char cur_char)
 {
@@ -996,6 +1001,7 @@ void print_tags(struct record_t *records, int n_recs)
 		/* cols counts the number of columns a printed line occupies */
 		int cols;
 		char tmp[64];
+
 		for (int i = 0; i < n_tags; i++) {
 			if (cols == 0)
 				putchar(' ');
@@ -1068,9 +1074,11 @@ void print_records(struct record_t *records, int n_recs, float start_amnt, struc
 	/* decide whether to print with a currency character */
 	void (*print_amnt)(char sign, char curr_char, float amnt, int field_width);
 	if (defs.currency_char == 0)
-		print_amnt = &print_amnt_no_cc;
+		defs.currency_char = ' ';
+	if (defs.color_on == true)
+		print_amnt = &print_amnt_col;
 	else
-		print_amnt = &print_amnt_cc;
+		print_amnt = &print_amnt_nocol;
 
 	/* set the display order for records (regular or reversed) */
 	int start, end, inc;
@@ -1103,10 +1111,13 @@ void print_records(struct record_t *records, int n_recs, float start_amnt, struc
 			printf("\"%s\" ", to_print[i].message);
 		/* prints tags */
 		if (to_print[i].n_tags > 0) {
+			if (defs.color_on == true)
+				printf(COL_BLU);
 			printf("[%s", to_print[i].tags[0]);
 			for (int j = 1; j < to_print[i].n_tags; j++)
 				printf(",%s", to_print[i].tags[j]);
 			putchar(']');
+			printf(COL_RESET);
 		}
 
 		putchar('\n');

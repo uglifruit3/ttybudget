@@ -249,6 +249,7 @@ void initialize_defaults(struct defaults_t *defaults)
 	defaults->currency_char = '\0';
 	defaults->currency_defined = false;
 	defaults->print_mode = 0;
+	defaults->color_on = false;
 	memset(defaults->recs_file, '\0', 256);
 
 	return;

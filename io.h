@@ -30,6 +30,12 @@ enum Commandline_Options {
 	NO_WARNINGS, WARNINGS_ONLY
 };
 
+/* color definitions */
+#define COL_RESET "\x1b[0m"
+#define COL_RED   "\x1b[1;31m"
+#define COL_GRN   "\x1b[1;32m"
+#define COL_BLU   "\x1b[1;36m"  
+
 /* linked list structure for accumulating new records to be added */
 struct NewRecs_t {
 	struct record_t data;
@@ -113,8 +119,8 @@ void *get_print_date(int date_format);
 
 bool search_results_exist(int search_return, struct search_param_t params, int n_recs, int date_format);
 
-void print_amnt_no_cc(char sign, char curr_char, float amnt, int field_width);
-void print_amnt_cc(char sign, char curr_char, float amnt, int field_width);
+void print_amnt_col(char sign, char curr_char, float amnt, int field_width);
+void print_amnt_nocol(char sign, char curr_char, float amnt, int field_width);
 
 void print_table_footer(struct record_t *records, int n_recs, int *matches, float start_amnt, char cur_char);
 void print_tags(struct record_t *records, int n_recs);

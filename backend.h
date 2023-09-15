@@ -69,7 +69,6 @@ struct defaults_t {
 
 /* frees an array wherein each element is allocated manually */
 void free_array(char **array, int n);
-void arr_cpy(struct record_t *dest, struct record_t *src, int n);
 int *binary_search(int term, int *list, int hi, int lo);
 
 /* initializes a record for population */

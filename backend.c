@@ -23,14 +23,6 @@ void free_array(char **array, int n)
 	return;
 }
 
-void arr_cpy(struct record_t *dest, struct record_t *src, int n)
-{
-	for (int i = 0; i < n; i++)
-		dest[i] = src[i];
-
-	return;
-}
-
 int *binary_search(int term, int *list, int hi, int lo)
 {
 	int ref = (((float)hi - (float)lo) / 2.0) + lo;
@@ -525,8 +517,10 @@ void sort_recs_amounts(struct record_t *list, struct record_t *tmp, int n, int r
 {
 	int sub_width = pow(2, runs);
 	if (sub_width > n) {
-		if (runs % 2 != 0)
-			arr_cpy(tmp, list, n);
+		if (runs % 2 != 0) {
+			for (int i = 0; i < n; i++) 
+				tmp[i] = mk_record_cpy(list[i]);
+		}
 		return;
 	}
 
@@ -564,8 +558,10 @@ void sort_recs_date(struct record_t *list, struct record_t *tmp, int n, int runs
 {
 	int sub_width = pow(2, runs);
 	if (sub_width > n) {
-		if (runs % 2 != 0)
-			arr_cpy(tmp, list, n);
+		if (runs % 2 != 0) {
+			for (int i = 0; i < n; i++) 
+				tmp[i] = mk_record_cpy(list[i]);
+		}
 		return;
 	}
 

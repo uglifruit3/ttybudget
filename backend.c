@@ -71,12 +71,12 @@ void initialize_record(struct record_t *record)
 	return;
 }
 
-void free_recs_array(struct record_t *records, int n_recs, bool del_tags)
+void free_recs_array(struct record_t *records, int n_recs)
 {
 	if (records == NULL) 
 		return;
 	for (int i = 0; i < n_recs; i++) {
-		if (del_tags == false || records[i].n_tags == 0)
+		if (records[i].n_tags == 0)
 			continue;
 
 		for (int j = 0; j < records[i].n_tags; j++)
@@ -241,6 +241,17 @@ struct record_t *get_records_array(FILE *infile, int num_records, float *start_a
 		records = NULL;
 	}
 	return records;
+}
+
+void initialize_defaults(struct defaults_t *defaults)
+{
+	defaults->in_date_frmt = defaults->out_date_frmt = defaults->change_flag = 0;
+	defaults->currency_char = '\0';
+	defaults->currency_defined = false;
+	defaults->print_mode = 0;
+	memset(defaults->recs_file, '\0', 256);
+
+	return;
 }
 
 bool dir_exists(char dir[], int *err)
@@ -933,6 +944,28 @@ int *search_records(struct record_t *records, int n_recs, struct search_param_t 
 	return match_inds;
 }
 
+struct record_t mk_record_cpy(struct record_t rec_orig)
+{
+	struct record_t rec_dest;
+	initialize_record(&rec_dest);
+
+	rec_dest.amount = rec_orig.amount;
+	rec_dest.date   = rec_orig.date;
+
+	strcpy(rec_dest.message, rec_orig.message);
+
+	rec_dest.n_tags = rec_orig.n_tags;
+	if (rec_dest.n_tags > 0) {
+		rec_dest.tags = malloc(rec_dest.n_tags * sizeof(char *));
+		for (int j = 0; j < rec_orig.n_tags; j++) {
+			rec_dest.tags[j] = calloc(MAX_TAG_LEN, sizeof(char));
+			strcpy(rec_dest.tags[j], rec_orig.tags[j]);
+		}
+	}
+
+	return rec_dest;
+}
+
 struct record_t *add_records(struct NewRecs_t *new_recs, struct record_t *records, int *n_recs)
 {	
 	if (new_recs == NULL)
@@ -949,11 +982,13 @@ struct record_t *add_records(struct NewRecs_t *new_recs, struct record_t *record
 	struct record_t *tmp      = malloc((n_newrecs+*n_recs)*sizeof(struct record_t));
 
 	int i;
+	/* copy everything in original records array */
 	for (i = 0; i < *n_recs; i++)
-		all_recs[i] = records[i];
+		all_recs[i] = mk_record_cpy(records[i]);
+	/* copy everything in new records list */
 	tmp_new = new_recs;
 	for (i = i; i < *n_recs+n_newrecs; i++) {
-		all_recs[i] = tmp_new->data;
+		all_recs[i] = mk_record_cpy(tmp_new->data);
 		tmp_new = tmp_new->next;
 	}
 
@@ -961,7 +996,7 @@ struct record_t *add_records(struct NewRecs_t *new_recs, struct record_t *record
 
 	if (tmp != all_recs)
 		free(tmp);
-	free(records);
+	free_recs_array(records, *n_recs);
 	*n_recs += n_newrecs;
 
 	return all_recs;

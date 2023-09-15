@@ -12,6 +12,32 @@
 #include "io.h"
 #include "info.h"
 
+/* this static array must match, element for element, the options listed 
+ * in the Commandline_Options enumerator in io.c */
+const char *Commandline_Strings[] = {
+	"-a", "--add",                              /* 0-1 add */
+		"-t", "--tags",                     /* 2-7 add options */
+		"-m", "--message",
+		"-d", "--date",
+	"-p", "--print",                            /* 8-9 print */
+		"-q", "--query-tags",               /* 10-19 print options */
+		"-i", "--interval",
+		"-f", "--find-range",
+		"-s", "--sort",
+		"-r", "--reverse",
+		"-n", "--no-footer",
+		"-l", "--list-tags",
+	"-h", "--help",                             /* 23-27 help and version info */
+	"-v", "--version",
+	"--date-in-iso", "--date-in-us",            /* 28-33 date formats */
+	"--date-out-iso", "--date-out-us", "--date-out-long", "--date-out-abbr",
+	"-c", "--currency-char",                    /* 34-35 currency config */
+	"-u", "--use-file",                         /* 36-37 use file config */
+	"--color-on", "--color-off",                /* 38-39 color printing */
+	"--no-warn", "--warn-only"                  /* 40-41 warning options */
+};
+const int Num_Commandline_Options = 42;
+
 void add2front(struct NewRecs_t **list, struct NewRecs_t *new) 
 {
 	if (*list == NULL) {
@@ -25,7 +51,7 @@ void add2front(struct NewRecs_t **list, struct NewRecs_t *new)
 	return;
 }
 
-void free_list(struct NewRecs_t *list, bool del_mode) 
+void free_list(struct NewRecs_t *list) 
 {
 	if (list == NULL)
 		return;
@@ -34,14 +60,11 @@ void free_list(struct NewRecs_t *list, bool del_mode)
 		to_free = list;
 		list = list->next;
 
-		/* tags don't need to be freed here; they share an address with tags in 
-		 * the actual records array and are freed when those are freed in the 
-		 * free_recs_array function */
-		if (del_mode == true && to_free->data.n_tags > 0) {
-			for (int i = 0; i < to_free->data.n_tags; i++)
-				free(to_free->data.tags[i]);
+		for (int i = 0; i < to_free->data.n_tags; i++)
+			free(to_free->data.tags[i]);
+		if (to_free->data.n_tags > 0)
 			free(to_free->data.tags);
-		}
+
 		free(to_free);
 	}	
 }
@@ -60,35 +83,7 @@ signed int string_in_list(char *string, char **list, int num_list_items)
 
 signed int is_cmdline_option(char *str1)
 {
-	/* this static array must match, element for element, the options listed in the Commandline_Options 
-	 * enumerator in io.h */
-	const char *cmdline_opts[] = {
-		"-a", "--add",                              /* 0-1 add */
-			"-t", "--tags",                     /* 2-7 add options */
-			"-m", "--message",
-			"-d", "--date",
-		"-p", "--print",                            /* 8-9 print */
-			"-q", "--query-tags",               /* 10-19 print options */
-			"-i", "--interval",
-			"-f", "--find-range",
-			"-s", "--sort",
-			"-r", "--reverse",
-			"-n", "--no-footer",
-			"-l", "--list-tags",
-		"-h", "--help",                             /* 23-27 help and version info */
-		"-v", "--version",
-		"--date-in-iso", "--date-in-us",            /* 28-33 date formats */
-		"--date-out-iso", "--date-out-us", "--date-out-long", "--date-out-abbr",
-		"-c", "--currency-char",                    /* 34-35 currency config */
-		"-u", "--use-file",                         /* 36-37 use file config */
-		"--color-on", "--color-off",                /* 38-39 color printing */
-		"--no-warn", "--warn-only"                  /* 40-41 warning options */
-	};
-	const int num_opts = 42;
-
-	signed int opt = string_in_list(str1, (char **)cmdline_opts, num_opts);
-			
-	return opt;
+	return string_in_list(str1, (char **)Commandline_Strings, Num_Commandline_Options);
 }
 
 long get_filesize(FILE *fp)
@@ -555,7 +550,7 @@ int get_new_records(int argc, char *argv[], int *index, int date_frmt, struct Ne
 			fprintf(stderr, "Error: amount not given for add option.\n");
 		}
 
-		free_list(record, true);
+		free_list(record);
 		return USR_ERR;
 	}
 
@@ -868,6 +863,59 @@ void print_date_ABBR(int date, FILE *device)
 	fprintf(device, " %02i %s %i ", dy, s_mos[mo-1], yr);
 	return;
 }
+void *get_print_date(int date_format)
+{
+	void (*print_date_func)(int date, FILE *device);
+	switch (date_format) {
+	case OUT_DATE_ISO:
+		print_date_func = &print_date_ISO;	
+		break;
+	case OUT_DATE_US:
+		print_date_func = &print_date_US;	
+		break;
+	case OUT_DATE_LONG:
+		print_date_func = &print_date_LONG;	
+		break;
+	case OUT_DATE_ABBR:
+		print_date_func = &print_date_ABBR;	
+		break;
+	}
+
+	return (void *) print_date_func;
+}
+
+bool search_results_exist(int search_return, struct search_param_t params, int n_recs, int date_format)
+{
+	void (*print_date)(int date, FILE *device) = get_print_date(date_format);
+
+	switch (search_return) {
+	case -1:
+		fprintf(stderr, "No records between dates");
+		print_date(params.date1, stderr);
+		fprintf(stderr, "and");
+		print_date(params.date2, stderr);
+		fprintf(stderr, "found.\n");
+		return false;
+	case -2:
+		fprintf(stderr, "No records with date"); 
+		print_date(params.date2, stderr);
+		fprintf(stderr, "found.\n");
+		return false;
+	case -3:
+		if (n_recs != 0)
+			fprintf(stderr, "No records in amount range %.2f, %.2f found.\n", params.amnt_bound1, params.amnt_bound2);
+		return false;
+	case -4:
+		fprintf(stderr, "No records with given tags found.\n");
+		return false;
+	case -5:
+		fprintf(stderr, "No records in amount range %.2f, %.2f found.\nError: no records with given tags found.\n", params.amnt_bound1, params.amnt_bound2);
+		return false;
+	default:
+		break;
+	}
+	return true;
+}
 
 void print_amnt_no_cc(char sign, char curr_char, float amnt, int field_width)
 {
@@ -985,6 +1033,7 @@ void print_records(struct record_t *records, int n_recs, float start_amnt, struc
 	if (defs.print_mode == WARNINGS_ONLY) {
 		if (*Warning_Count == 0)
 			printf("No warnings issued.\n");
+		/* exit regardless of warning count, since records are not to be displayed */
 		return;
 	}
 
@@ -992,55 +1041,10 @@ void print_records(struct record_t *records, int n_recs, float start_amnt, struc
 		printf("\n=========================================================================\n");
 
 	int *prints = search_records(records, n_recs, params);
-
-	/* decide which date format to employ */
-	void (*print_date)(int date, FILE *device);
-	switch (defs.out_date_frmt) {
-	case OUT_DATE_ISO:
-		print_date = &print_date_ISO;	
-		break;
-	case OUT_DATE_US:
-		print_date = &print_date_US;	
-		break;
-	case OUT_DATE_LONG:
-		print_date = &print_date_LONG;	
-		break;
-	case OUT_DATE_ABBR:
-		print_date = &print_date_ABBR;	
-		break;
-	}
-
 	/* display output and exit if the search returns no results */
-	switch (*prints) {
-	case -1:
-		fprintf(stderr, "No records between dates");
-		print_date(params.date1, stderr);
-		fprintf(stderr, "and");
-		print_date(params.date2, stderr);
-		fprintf(stderr, "found.\n");
+	if (search_results_exist(*prints, params, n_recs, defs.out_date_frmt) == false) {
 		free(prints);
 		return;
-	case -2:
-		fprintf(stderr, "No records with date"); 
-		print_date(params.date2, stderr);
-		fprintf(stderr, "found.\n");
-		free(prints);
-		return;
-	case -3:
-		if (n_recs != 0)
-			fprintf(stderr, "No records in amount range %.2f, %.2f found.\n", params.amnt_bound1, params.amnt_bound2);
-		free(prints);
-		return;
-	case -4:
-		fprintf(stderr, "No records with given tags found.\n");
-		free(prints);
-		return;
-	case -5:
-		fprintf(stderr, "No records in amount range %.2f, %.2f found.\nError: no records with given tags found.\n", params.amnt_bound1, params.amnt_bound2);
-		free(prints);
-		return;
-	default:
-		break;
 	}
 	
 	/* search_records relies upon binary searching, meaning that the array must be searched before sorting. 
@@ -1048,7 +1052,7 @@ void print_records(struct record_t *records, int n_recs, float start_amnt, struc
 	struct record_t *to_print = malloc(prints[0]*sizeof(struct record_t));
 	float max_amnt = 0;
 	for (int i = 1; i <= prints[0]; i++) {
-		to_print[i-1] = records[prints[i]];
+		to_print[i-1] = mk_record_cpy(records[prints[i]]);
 		/* also finding largest records amount for getting field width of numbers */
 		if (fabs(records[prints[i]].amount) > max_amnt)
 			max_amnt = fabs(records[prints[i]].amount);
@@ -1058,7 +1062,7 @@ void print_records(struct record_t *records, int n_recs, float start_amnt, struc
 		struct record_t *tmp = malloc(prints[0]*sizeof(struct record_t));
 		sort_recs_amounts(to_print, tmp, prints[0], 0);
 		if (tmp != to_print)
-			free_recs_array(tmp, n_recs, false);
+			free_recs_array(tmp, n_recs);
 	}
 
 	/* decide whether to print with a currency character */
@@ -1085,6 +1089,9 @@ void print_records(struct record_t *records, int n_recs, float start_amnt, struc
 	/* display output */
 	char signs[] = {'-', '+'};
 	int i = start;
+	/* decide which date format to employ */
+	void (*print_date)(int date, FILE *device) = get_print_date(defs.out_date_frmt);
+	/* now actually print records */
 	/* index starts at start, moves by inc each iteration, until it is equal to end */
 	while (i != end) {
 		/* print the date */
@@ -1113,7 +1120,7 @@ void print_records(struct record_t *records, int n_recs, float start_amnt, struc
 	if (params.show_footer)
 		print_table_footer(records, n_recs, prints, start_amnt, defs.currency_char);
 
-	free_recs_array(to_print, prints[0], false);
+	free_recs_array(to_print, prints[0]);
 	free(prints);
 
 	if (*Warning_Count > 0)

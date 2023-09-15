@@ -75,7 +75,7 @@ int *binary_search(int term, int *list, int hi, int lo);
 /* initializes a record for population */
 void initialize_record(struct record_t *record);
 /* frees an array of records */
-void free_recs_array(struct record_t *records, int n_recs, bool del_tags);
+void free_recs_array(struct record_t *records, int n_recs);
 /* initializes a search parameter for population */
 void init_search_params(struct search_param_t *search_param);
 /* frees the dynamically allocated tags in search_params */
@@ -90,6 +90,7 @@ char **get_elements(char line[600]);
 /* gets an array of all records stored in file, using the record_t structure */
 struct record_t *get_records_array(FILE *infile, int num_records, float *start_amnt);
 
+void initialize_defaults(struct defaults_t *defaults);
 /* functions for reading/writing defaults */
 bool dir_exists(char dir[], int *err);
 /* opens the defaults file, given a mode adherent to fopen() */
@@ -128,6 +129,7 @@ struct tagnode_t *get_tag_list(struct record_t *records, int n_recs, int *n_tags
 	 *   -5: amount and tags parameters return no results */
 int *search_records(struct record_t *records, int n_recs, struct search_param_t params);
 
+struct record_t mk_record_cpy(struct record_t rec_orig);
 struct record_t *add_records(struct NewRecs_t *new_recs, struct record_t *records, int *n_recs);
 
 #endif

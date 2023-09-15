@@ -49,7 +49,7 @@ void add2front(struct NewRecs_t **list, struct NewRecs_t *new);
  * added to the record array. Under normal operation, freeing that records
  * array handles freeing the shared tags. But in an error state, it is 
  * sometimes necessary for this function to free tags */
-void free_list(struct NewRecs_t *list, bool del_mode);
+void free_list(struct NewRecs_t *list);
 
 /* commandline parse helpers */
 /* general purpose checker for whether string is in list. returns index of match or -1 if none */
@@ -109,6 +109,9 @@ void print_date_ISO(int date, FILE *device);
 void print_date_US(int date, FILE *device);
 void print_date_LONG(int date, FILE *device);
 void print_date_ABBR(int date, FILE *device);
+void *get_print_date(int date_format);
+
+bool search_results_exist(int search_return, struct search_param_t params, int n_recs, int date_format);
 
 void print_amnt_no_cc(char sign, char curr_char, float amnt, int field_width);
 void print_amnt_cc(char sign, char curr_char, float amnt, int field_width);
